@@ -139,7 +139,7 @@ export const fetchHistory = async (
       low: parseFloat(d.low),
       close: parseFloat(d.close),
       volume: parseFloat(d.volume)
-    }));
+    })).sort((a: Candle, b: Candle) => a.time - b.time);
   } catch (error) {
     console.warn(`Market API Down, using Deterministic Fallback for ${symbol.id}:`, error);
     return generateHistoryFallback(symbol, timeframeId, count);

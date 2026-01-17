@@ -6,7 +6,7 @@ import AnalysisModal from './components/AnalysisModal';
 import { SymbolDef, AlgoConfig, Candle, Signal } from './types';
 import { SUPPORTED_SYMBOLS, TIMEFRAMES } from './constants';
 import { fetchHistory, updateCandleWithTick, fetchLatestTick, calculateSignals } from './services/marketService';
-import { analyzeMarket } from './services/aiService';
+import { analyzeWithGemini } from './services/aiService';
 
 const DEFAULT_CONFIG: AlgoConfig = {
   sensitivity: 5,
@@ -17,7 +17,9 @@ const DEFAULT_CONFIG: AlgoConfig = {
   atrPeriod: 14,
   strategy: 'MOMENTUM',
   useRSIFilter: false,
-  useVolumeFilter: false
+  useVolumeFilter: false,
+  enableAISignals: false,
+  aiModeEnabled: false
 };
 
 const App: React.FC = () => {
@@ -47,6 +49,7 @@ const App: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState("");
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [aiSignals, setAiSignals] = useState<Signal[]>([]);
 
   // Refs for interval management
   const tickIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -62,6 +65,11 @@ const App: React.FC = () => {
 
   useEffect(() => {
     localStorage.setItem('gainzalgo_config', JSON.stringify(config));
+
+    // Reset AI signals if AI enhancement is turned off
+    if (!config.enableAISignals) {
+      setAiSignals([]);
+    }
   }, [config]);
 
   // --- Logic ---
@@ -70,6 +78,7 @@ const App: React.FC = () => {
   const handleSymbolChange = (newSymbol: SymbolDef) => {
     if (newSymbol.id === symbol.id) return;
     setData([]); // Clear data immediately to unmount chart and prevent stale data issues
+    setAiSignals([]); // Clear AI signals on symbol change
     setSymbol(newSymbol);
   };
 
@@ -81,6 +90,7 @@ const App: React.FC = () => {
       // Clear data immediately to show loading state if symbol changed
       if (prevSymbolRef.current !== symbol.id) {
         setData([]);
+        setAiSignals([]);
         prevSymbolRef.current = symbol.id;
       }
 
@@ -88,7 +98,8 @@ const App: React.FC = () => {
 
       if (isMounted) {
         setData(initialData);
-        setSignals(calculateSignals(initialData, config));
+        const techSignals = calculateSignals(initialData, config);
+        setSignals(techSignals);
       }
     };
 
@@ -99,9 +110,18 @@ const App: React.FC = () => {
   // Recalculate signals if config changes or data updates
   useEffect(() => {
     if (data.length > 0) {
-      setSignals(calculateSignals(data, config));
+      const techSignals = calculateSignals(data, config);
+      // Combine with AI signals if enabled
+      if (config.enableAISignals) {
+        const combined = [...techSignals, ...aiSignals];
+        // Ensure signals are sorted by time for the chart markers
+        combined.sort((a, b) => a.candleTime - b.candleTime);
+        setSignals(combined);
+      } else {
+        setSignals(techSignals);
+      }
     }
-  }, [config, data]);
+  }, [config, data, aiSignals]);
 
   // Live Tick Updates (Real Price Polling)
   useEffect(() => {
@@ -157,10 +177,22 @@ const App: React.FC = () => {
   // AI Handler
   const handleAIAnalysis = async () => {
     setIsAnalyzing(true);
-    const result = await analyzeMarket(symbol, timeframe, data, signals);
-    setAnalysisResult(result);
-    setIsAnalyzing(false);
-    setShowAnalysis(true);
+    try {
+      const result = await analyzeWithGemini(symbol, timeframe, data, signals);
+      setAnalysisResult(result.analysis);
+
+      if (config.enableAISignals) {
+        setAiSignals(result.signals);
+      }
+
+      setShowAnalysis(true);
+    } catch (err) {
+      console.error("AI Analysis failed:", err);
+      setAnalysisResult("Analysis failed. Please check console.");
+      setShowAnalysis(true);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   // --- Render ---
@@ -208,6 +240,7 @@ const App: React.FC = () => {
         isOpen={showAnalysis}
         onClose={() => setShowAnalysis(false)}
         content={analysisResult}
+        signals={signals}
       />
     </div>
   );

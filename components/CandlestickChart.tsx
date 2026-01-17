@@ -168,13 +168,18 @@ const CandlestickChart: React.FC<Props> = ({ data, signals, config, symbolId, ti
     // This is generally lightweight enough.
     const markers: SeriesMarker<UTCTimestamp>[] = signals.map(sig => {
       const isLong = sig.type === 'LONG';
+      const isAI = sig.isAI;
+
+      let color = isLong ? CHART_COLORS.signalLong : CHART_COLORS.signalShort;
+      if (isAI) color = '#a855f7'; // Purple for AI
+
       return {
         time: Math.floor(sig.candleTime / 1000) as UTCTimestamp,
         position: isLong ? 'belowBar' : 'aboveBar',
-        color: isLong ? CHART_COLORS.signalLong : CHART_COLORS.signalShort,
+        color: color,
         shape: isLong ? 'arrowUp' : 'arrowDown',
-        text: `${isLong ? 'BUY' : 'SELL'} (${sig.confidence}%)`,
-        size: 2,
+        text: `${isAI ? '[AI] ' : ''}${isLong ? 'BUY' : 'SELL'} (${sig.confidence}%)`,
+        size: isAI ? 3 : 2,
       };
     });
 

@@ -28,6 +28,8 @@ export interface AlgoConfig {
   strategy: StrategyType;
   useRSIFilter: boolean;
   useVolumeFilter: boolean;
+  enableAISignals: boolean;
+  aiModeEnabled: boolean;
 }
 
 export interface Candle {
@@ -49,4 +51,5 @@ export interface Signal {
   status: 'ACTIVE' | 'HIT_TP' | 'HIT_SL' | 'PENDING';
   reason?: string; // To display which logic triggered it
   confidence: number; // 0-100 percentage
+  isAI?: boolean;
 }
