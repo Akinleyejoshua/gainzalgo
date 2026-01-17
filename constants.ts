@@ -29,5 +29,9 @@ export const CHART_COLORS = {
   signalShort: '#ff3b30',
   tpLine: '#00d68f',
   slLine: '#ff3b30',
-  entryLine: '#ffffff'
+  entryLine: '#ffffff',
+  aiSignal: '#a855f7',
+  aiTpLine: '#d8b4fe',
+  aiSlLine: '#f0abfc',
+  aiEntryLine: '#a855f7'
 };

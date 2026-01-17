@@ -171,7 +171,7 @@ const CandlestickChart: React.FC<Props> = ({ data, signals, config, symbolId, ti
       const isAI = sig.isAI;
 
       let color = isLong ? CHART_COLORS.signalLong : CHART_COLORS.signalShort;
-      if (isAI) color = '#a855f7'; // Purple for AI
+      if (isAI) color = CHART_COLORS.aiSignal; // Purple for AI
 
       return {
         time: Math.floor(sig.candleTime / 1000) as UTCTimestamp,
@@ -210,34 +210,36 @@ const CandlestickChart: React.FC<Props> = ({ data, signals, config, symbolId, ti
     const latestSignal = signals[signals.length - 1];
 
     if (latestSignal && latestSignal.status === 'ACTIVE') {
+      const isAI = latestSignal.isAI;
+
       // Entry Line
       entryLineRef.current = seriesRef.current.createPriceLine({
         price: latestSignal.entryPrice,
-        color: CHART_COLORS.entryLine,
-        lineWidth: 1,
+        color: isAI ? CHART_COLORS.aiEntryLine : CHART_COLORS.entryLine,
+        lineWidth: isAI ? 2 : 1,
         lineStyle: LineStyle.Solid,
         axisLabelVisible: true,
-        title: 'ENTRY',
+        title: `${isAI ? '[AI] ' : ''}ENTRY`,
       });
 
       if (config.showTP) {
         tpLineRef.current = seriesRef.current.createPriceLine({
           price: latestSignal.takeProfit,
-          color: CHART_COLORS.tpLine,
-          lineWidth: 1,
+          color: isAI ? CHART_COLORS.aiTpLine : CHART_COLORS.tpLine,
+          lineWidth: isAI ? 2 : 1,
           lineStyle: LineStyle.Dotted,
           axisLabelVisible: true,
-          title: 'TP',
+          title: `${isAI ? '[AI] ' : ''}TP`,
         });
       }
       if (config.showSL) {
         slLineRef.current = seriesRef.current.createPriceLine({
           price: latestSignal.stopLoss,
-          color: CHART_COLORS.slLine,
-          lineWidth: 1,
+          color: isAI ? CHART_COLORS.aiSlLine : CHART_COLORS.slLine,
+          lineWidth: isAI ? 2 : 1,
           lineStyle: LineStyle.Dotted,
           axisLabelVisible: true,
-          title: 'SL',
+          title: `${isAI ? '[AI] ' : ''}SL`,
         });
       }
     }
