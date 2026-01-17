@@ -18,88 +18,86 @@ const AnalysisModal: React.FC<Props> = ({ isOpen, onClose, content, signals = []
   const aiSignals = signals.filter(s => s.isAI);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-[#13141b] border border-[#2f303b] w-full max-w-4xl rounded-2xl shadow-2xl flex flex-col max-h-[85vh]">
-        <div className="flex items-center justify-between p-6 border-b border-[#1e1e24]">
-          <div className="flex items-center gap-3">
-            <div className="bg-indigo-500/20 p-2 rounded-lg">
-              <Bot className="text-indigo-400" size={24} />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-white">Gemini Intelligence Hub</h3>
-              <p className="text-xs text-gray-400">Market Analysis & Professional Trade Setups</p>
-            </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 md:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+      <div className="bg-[#14151a] w-full max-w-5xl max-h-[95vh] md:max-h-[85vh] rounded-3xl border border-[#1e1e24] shadow-2xl flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="p-4 md:p-6 border-b border-[#1e1e24] flex items-center justify-between bg-[#1a1b23]/50">
+          <div>
+            <h2 className="text-xl md:text-2xl font-black text-white tracking-tighter">INTELLIGENCE <div className="inline-block px-2 py-0.5 bg-indigo-600 text-[10px] rounded ml-2 align-middle">PRO</div></h2>
+            <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Llama 3.3-70B Deep Market Analysis</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
-            <X size={24} />
+          <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+            <X size={20} className="text-gray-400" />
           </button>
         </div>
 
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        {/* Content Body - Responsive Stack */}
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
           {/* Analysis View */}
-          <div className="flex-1 p-8 overflow-y-auto border-r border-[#1e1e24] text-gray-300">
-            <div className="text-xs font-mono uppercase text-indigo-400 mb-4 tracking-widest">Executive Summary</div>
-            <div className="prose prose-invert prose-indigo max-w-none">
+          <div className="flex-1 p-4 md:p-8 overflow-y-auto custom-scrollbar border-b md:border-b-0 md:border-r border-[#1e1e24]">
+            <article className="prose prose-invert prose-sm max-w-none prose-p:text-gray-300 prose-headings:text-white prose-strong:text-emerald-400 prose-code:text-indigo-300 prose-pre:bg-[#0d0e12]">
               <ReactMarkdown>{content}</ReactMarkdown>
-            </div>
+            </article>
           </div>
 
-          {/* Trade Setups View */}
-          <div className="w-full md:w-80 bg-[#0d0e12] p-6 overflow-y-auto">
-            <div className="text-xs font-mono uppercase text-emerald-400 mb-4 tracking-widest flex items-center gap-2">
+          {/* AI Signals Sidebar */}
+          <div className="w-full md:w-80 bg-[#0d0e12] p-4 md:p-6 overflow-y-auto custom-scrollbar">
+            <div className="text-[10px] font-bold uppercase text-indigo-400 mb-6 tracking-[0.2em] flex items-center gap-2">
               <Target size={14} />
-              AI Trade Setups
+              Alpha Setup Only
             </div>
 
             {aiSignals.length > 0 ? (
               <div className="space-y-4">
                 {aiSignals.map((sig, idx) => (
-                  <div key={idx} className={`p-4 rounded-xl border ${sig.type === 'LONG' ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
-                    <div className="flex justify-between items-start mb-3">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${sig.type === 'LONG' ? 'bg-emerald-500 text-black' : 'bg-red-500 text-white'}`}>
+                  <div key={idx} className={`p-5 rounded-2xl border transition-all duration-500 shadow-xl ${sig.type === 'LONG' ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
+                    <div className="flex items-center justify-between mb-4">
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest ${sig.type === 'LONG' ? 'bg-emerald-500 text-black' : 'bg-red-500 text-white'}`}>
                         {sig.type}
                       </span>
-                      <span className="text-xs font-mono text-gray-500">
-                        {sig.confidence}% Conf.
-                      </span>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Entry</span>
-                        <span className="text-white font-mono font-bold">{sig.entryPrice.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-emerald-500 flex items-center gap-1"><ArrowUpRight size={12} /> TP</span>
-                        <span className="text-emerald-400 font-mono">{sig.takeProfit.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-red-500 flex items-center gap-1"><Shield size={12} /> SL</span>
-                        <span className="text-red-400 font-mono">{sig.stopLoss.toLocaleString()}</span>
+                      <div className="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded text-[10px] font-mono font-bold text-gray-300">
+                        {sig.confidence}% CONF
                       </div>
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-white/5 text-[10px] text-gray-400 italic">
+                    <div className="grid grid-cols-1 gap-3 mb-4">
+                      <div className="flex items-center justify-between p-2 bg-white/5 rounded-lg border border-white/5">
+                        <span className="text-[10px] text-gray-400 uppercase font-bold">Entry Pt</span>
+                        <span className="text-sm font-mono font-bold text-white">{sig.entryPrice.toFixed(4)}</span>
+                      </div>
+                      <div className="flex items-center justify-between p-2 bg-emerald-500/5 rounded-lg border border-emerald-500/10">
+                        <span className="text-[10px] text-emerald-500 uppercase font-bold tracking-tight">Take Profit</span>
+                        <span className="text-sm font-mono font-bold text-emerald-400">{sig.takeProfit.toFixed(4)}</span>
+                      </div>
+                      <div className="flex items-center justify-between p-2 bg-red-500/5 rounded-lg border border-red-500/10">
+                        <span className="text-[10px] text-red-400 uppercase font-bold tracking-tight">Stop Loss</span>
+                        <span className="text-sm font-mono font-bold text-red-400">{sig.stopLoss.toFixed(4)}</span>
+                      </div>
+                    </div>
+
+                    <div className="text-[11px] text-gray-300 italic leading-relaxed bg-black/40 p-3 rounded-xl border border-white/5">
+                      <span className="text-indigo-400 font-bold mr-1">Logic:</span>
                       {sig.reason}
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-40 text-center opacity-40">
-                <Shield size={32} className="mb-2 text-gray-600" />
-                <p className="text-xs text-gray-500">No AI setups detected in current window.</p>
+              <div className="h-40 flex flex-col items-center justify-center text-center opacity-40">
+                <Target size={32} className="mb-2 text-gray-600" />
+                <p className="text-xs text-gray-500 font-medium">No high-conviction <br />alpha setups detected.</p>
               </div>
             )}
           </div>
         </div>
 
-        <div className="p-4 border-t border-[#1e1e24] bg-[#0d0e12] rounded-b-2xl">
+        {/* Action Bar */}
+        <div className="p-4 border-t border-[#1e1e24] bg-[#1a1b23]/80 flex justify-end">
           <button
             onClick={onClose}
-            className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-90 text-white rounded-lg font-bold transition-all shadow-lg shadow-indigo-500/20"
+            className="px-8 py-3 bg-white text-black text-xs font-black uppercase tracking-widest rounded-xl hover:bg-emerald-400 transition-all active:scale-95"
           >
-            Acknowledge AI Guidance
+            Acknowledge Intelligence
           </button>
         </div>
       </div>

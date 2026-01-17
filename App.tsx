@@ -3,6 +3,7 @@ import ControlPanel from './components/ControlPanel';
 import CandlestickChart from './components/CandlestickChart';
 import LiveTicker from './components/LiveTicker';
 import AnalysisModal from './components/AnalysisModal';
+import { X, Sliders } from 'lucide-react';
 import { SymbolDef, AlgoConfig, Candle, Signal } from './types';
 import { SUPPORTED_SYMBOLS, TIMEFRAMES } from './constants';
 import { fetchHistory, updateCandleWithTick, fetchLatestTick, calculateSignals } from './services/marketService';
@@ -123,6 +124,36 @@ const App: React.FC = () => {
     }
   }, [config, data, aiSignals]);
 
+  // --- Real-time AI Signal Update ---
+  useEffect(() => {
+    let aiInterval: ReturnType<typeof setInterval> | null = null;
+
+    if (config.enableAISignals && data.length > 0) {
+      // Periodic background scan every 30 seconds to keep signals fresh
+      const backgroundScan = async () => {
+        try {
+          const result = await analyzeWithGemini(symbol, timeframe, data, signals);
+          if (result.signals.length > 0) {
+            setAiSignals(prev => {
+              // Merge but avoid duplicates based on candleTime
+              const existingTimes = new Set(prev.map(s => s.candleTime));
+              const newSignals = result.signals.filter(s => !existingTimes.has(s.candleTime));
+              return [...prev, ...newSignals].slice(-50); // Keep last 50 AI signals
+            });
+          }
+        } catch (err) {
+          console.warn("Background AI update failed:", err);
+        }
+      };
+
+      aiInterval = setInterval(backgroundScan, 30000);
+    }
+
+    return () => {
+      if (aiInterval) clearInterval(aiInterval);
+    };
+  }, [config.enableAISignals, symbol, timeframe, data.length > 0]);
+
   // Live Tick Updates (Real Price Polling)
   useEffect(() => {
     if (tickIntervalRef.current) clearInterval(tickIntervalRef.current);
@@ -164,9 +195,6 @@ const App: React.FC = () => {
       });
     };
 
-    // Poll for real price every 2 seconds for efficiency, 
-    // while we can still simulate small movements in between if we wanted, 
-    // but here we'll just stick to real updates.
     tickIntervalRef.current = setInterval(updateTick, 2000);
 
     return () => {
@@ -195,23 +223,61 @@ const App: React.FC = () => {
     }
   };
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   // --- Render ---
   return (
-    <div className="flex h-screen w-screen bg-[#0d0e12] text-white overflow-hidden">
-      {/* Sidebar Controls */}
-      <ControlPanel
-        currentSymbol={symbol}
-        currentTimeframe={timeframe}
-        config={config}
-        onSymbolChange={handleSymbolChange}
-        onTimeframeChange={setTimeframe}
-        onConfigChange={setConfig}
-        onAIAnalysis={handleAIAnalysis}
-        isAnalyzing={isAnalyzing}
-      />
+    <div className="flex flex-row h-screen w-screen bg-[#0d0e12] text-white overflow-hidden relative">
+      {/* Sidebar Controls - Drawer on mobile, Sidebar on desktop */}
+      <div className={`
+        fixed lg:relative z-40 lg:z-auto transition-transform duration-300 ease-in-out
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        w-80 h-full bg-[#0d0e12] border-r border-[#1e1e24] shrink-0
+      `}>
+        <ControlPanel
+          currentSymbol={symbol}
+          currentTimeframe={timeframe}
+          config={config}
+          onSymbolChange={(s) => {
+            handleSymbolChange(s);
+            if (window.innerWidth < 1024) setSidebarOpen(false);
+          }}
+          onTimeframeChange={(tf) => {
+            setTimeframe(tf);
+            if (window.innerWidth < 1024) setSidebarOpen(false);
+          }}
+          onConfigChange={setConfig}
+          onAIAnalysis={handleAIAnalysis}
+          isAnalyzing={isAnalyzing}
+        />
+
+        {/* Mobile Close Button */}
+        <button
+          onClick={() => setSidebarOpen(false)}
+          className="lg:hidden absolute top-4 right-4 p-2 bg-white/5 rounded-full text-gray-400"
+        >
+          <X size={20} />
+        </button>
+      </div>
+
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col h-full min-w-0">
+      <div className="flex-1 flex flex-col h-full min-w-0 min-h-0 relative">
+        {/* Floating Toggle Button (Mobile) */}
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="lg:hidden fixed bottom-6 right-6 z-20 w-14 h-14 bg-emerald-500 rounded-full shadow-2xl flex items-center justify-center text-black active:scale-95 transition-transform"
+        >
+          <Sliders size={24} />
+        </button>
+
         <LiveTicker
           symbol={symbol}
           currentCandle={data.length > 0 ? data[data.length - 1] : { time: 0, open: 0, close: 0, high: 0, low: 0, volume: 0 }}
