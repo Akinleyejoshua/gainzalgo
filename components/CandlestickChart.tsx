@@ -32,6 +32,7 @@ const CandlestickChart: React.FC<Props> = ({ data, signals, config, symbolId, ti
   // Lines refs
   const tpLineRef = useRef<any>(null);
   const slLineRef = useRef<any>(null);
+  const entryLineRef = useRef<any>(null);
 
   // Helper to determine precision based on price
   const getPrecision = (price: number) => {
@@ -192,18 +193,31 @@ const CandlestickChart: React.FC<Props> = ({ data, signals, config, symbolId, ti
         seriesRef.current.removePriceLine(slLineRef.current);
         slLineRef.current = null;
       }
+      if (entryLineRef.current) { // Remove entry line
+        seriesRef.current.removePriceLine(entryLineRef.current);
+        entryLineRef.current = null;
+      }
     } catch (e) {
       // Ignore removal errors if series is fresh
     }
 
-    // 2. Add new lines for active signal
-    const activeSignal = signals[signals.length - 1];
+    // 2. Add new lines for latest signal
+    const latestSignal = signals[signals.length - 1];
 
-    // Ensure the signal is recent (part of current view)
-    if (activeSignal && activeSignal.status === 'ACTIVE') {
+    if (latestSignal && latestSignal.status === 'ACTIVE') {
+      // Entry Line
+      entryLineRef.current = seriesRef.current.createPriceLine({
+        price: latestSignal.entryPrice,
+        color: CHART_COLORS.entryLine,
+        lineWidth: 1,
+        lineStyle: LineStyle.Solid,
+        axisLabelVisible: true,
+        title: 'ENTRY',
+      });
+
       if (config.showTP) {
         tpLineRef.current = seriesRef.current.createPriceLine({
-          price: activeSignal.takeProfit,
+          price: latestSignal.takeProfit,
           color: CHART_COLORS.tpLine,
           lineWidth: 1,
           lineStyle: LineStyle.Dotted,
@@ -213,7 +227,7 @@ const CandlestickChart: React.FC<Props> = ({ data, signals, config, symbolId, ti
       }
       if (config.showSL) {
         slLineRef.current = seriesRef.current.createPriceLine({
-          price: activeSignal.stopLoss,
+          price: latestSignal.stopLoss,
           color: CHART_COLORS.slLine,
           lineWidth: 1,
           lineStyle: LineStyle.Dotted,
