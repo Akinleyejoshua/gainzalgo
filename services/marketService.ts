@@ -283,24 +283,39 @@ export const calculateSignals = (data: Candle[], config: AlgoConfig): Signal[] =
       }
     }
 
-    // --- Filters ---
+    // --- Signal Generation & Confidence Calculation ---
 
-    if (isSignal && config.useRSIFilter) {
+    if (isSignal) {
+      // Confidence Logic (0-100)
+      let confScore = 60; // Base confidence
+
       const rsi = rsiArray[i];
-      if (type === 'LONG' && (rsi < 40 || rsi > 70)) isSignal = false;
-      if (type === 'SHORT' && (rsi > 60 || rsi < 30)) isSignal = false;
-    }
-
-    if (isSignal && config.useVolumeFilter) {
+      const vol = current.volume;
       let avgVol = 0;
       for (let k = 1; k <= 10; k++) avgVol += data[i - k].volume;
       avgVol /= 10;
-      if (current.volume < avgVol * 1.2) isSignal = false;
-    }
 
-    // --- Signal Generation & Cooldown Check ---
+      // 1. RSI Factor
+      if (type === 'LONG') {
+        if (rsi < 35) confScore += 15; // Oversold + Trend Reversal
+        else if (rsi > 60) confScore -= 10; // Overbought risk
+      } else {
+        if (rsi > 65) confScore += 15; // Overbought + Trend Reversal
+        else if (rsi < 40) confScore -= 10; // Oversold risk
+      }
 
-    if (isSignal) {
+      // 2. Volume Factor
+      if (vol > avgVol * 1.5) confScore += 15;
+      else if (vol > avgVol) confScore += 5;
+
+      // 3. Trend Alignment Factor
+      const isTrendLong = current.close > ema50[i] && ema21[i] > ema50[i];
+      const isTrendShort = current.close < ema50[i] && ema21[i] < ema50[i];
+
+      if ((type === 'LONG' && isTrendLong) || (type === 'SHORT' && isTrendShort)) confScore += 10;
+
+      confScore = Math.max(30, Math.min(98, confScore));
+
       const lastSignal = signals[signals.length - 1];
       const timeSinceLast = lastSignal ? current.time - lastSignal.candleTime : Infinity;
       const minTime = cooldownCandles * candleDuration;
@@ -317,7 +332,8 @@ export const calculateSignals = (data: Candle[], config: AlgoConfig): Signal[] =
           stopLoss: type === 'LONG' ? current.close - volatilityBuffer : current.close + volatilityBuffer,
           takeProfit: type === 'LONG' ? current.close + rewardTarget : current.close - rewardTarget,
           status: 'ACTIVE',
-          reason: reason
+          reason: reason,
+          confidence: confScore
         });
       }
     }

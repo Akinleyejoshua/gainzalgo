@@ -23,7 +23,7 @@ export interface AlgoConfig {
   showTP: boolean;
   showSL: boolean;
   atrPeriod: number;
-  
+
   // New Signal Logic Options
   strategy: StrategyType;
   useRSIFilter: boolean;
@@ -48,4 +48,5 @@ export interface Signal {
   takeProfit: number;
   status: 'ACTIVE' | 'HIT_TP' | 'HIT_SL' | 'PENDING';
   reason?: string; // To display which logic triggered it
+  confidence: number; // 0-100 percentage
 }
