@@ -47,8 +47,9 @@ export const analyzeWithGemini = async (
 
     TASK:
     1. Provide a professional market analysis in Markdown focusing on current structure and immediate bias.
-    2. Identify the SINGLE most probable, high-conviction trade setup (Buy or Sell). 
-    3. Do NOT provide a setup if no high-probability opportunity exists (Confidence must be > 70%).
+    2. Identify the SINGLE most probable, high-conviction trade setup (Buy or Sell) based specifically on the price action of the LATEST candle (the last one in the dataset).
+    3. Do NOT provide a setup if no high-probability opportunity exists (Confidence must be > 75%).
+    4. Ensure the 'candleTime' in your response matches the timestamp of the VERY LAST candle in the provided Market Data.
     
     FORMAT YOUR ENTIRE RESPONSE AS A JSON OBJECT:
     {
@@ -59,14 +60,14 @@ export const analyzeWithGemini = async (
           "entryPrice": number,
           "stopLoss": number,
           "takeProfit": number,
-          "reason": "Clear explanation of why this is the top pick (max 15 words)",
-          "confidence": number (70-100),
-          "candleTime": number (The timestamp of the candle where this signal occurs.)
+          "reason": "Clear explanation of why this is relevant to the LATEST candle (max 15 words)",
+          "confidence": number (75-100),
+          "candleTime": number (The timestamp of the VERY LAST candle in the market data array.)
         }
       ]
     }
 
-    CRITICAL: Only 1 setup allowed. ONLY respond with the JSON object. Do not include markdown code blocks.
+    CRITICAL: Only 1 setup allowed. ONLY provide a signal if it is valid for the LATEST candle. If no setup exists for the current moment, return an empty 'aiSignals' array. ONLY respond with the JSON object. Do not include markdown code blocks.
   `;
 
   // --- Try Groq First ---

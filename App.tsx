@@ -51,6 +51,7 @@ const App: React.FC = () => {
   const [analysisResult, setAnalysisResult] = useState("");
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [aiSignals, setAiSignals] = useState<Signal[]>([]);
+  const lastScannedCandleTime = useRef<number>(0);
 
   // Refs for interval management
   const tickIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -129,16 +130,23 @@ const App: React.FC = () => {
     let aiInterval: ReturnType<typeof setInterval> | null = null;
 
     if (config.enableAISignals && data.length > 0) {
-      // Periodic background scan every 30 seconds to keep signals fresh
       const backgroundScan = async () => {
+        const lastCandle = data[data.length - 1];
+
+        // Only scan if we haven't scanned this specific candle yet
+        if (lastCandle.time === lastScannedCandleTime.current) return;
+
         try {
           const result = await analyzeWithGemini(symbol, timeframe, data, signals);
+          lastScannedCandleTime.current = lastCandle.time;
+
           if (result.signals.length > 0) {
             setAiSignals(prev => {
-              // Merge but avoid duplicates based on candleTime
-              const existingTimes = new Set(prev.map(s => s.candleTime));
-              const newSignals = result.signals.filter(s => !existingTimes.has(s.candleTime));
-              return [...prev, ...newSignals].slice(-50); // Keep last 50 AI signals
+              // Strictly keep only the most recent AI signal for the current candle context
+              // This reduces noise and matches the "latest candle only" request
+              const newSignal = result.signals[0];
+              const filtered = prev.filter(s => s.candleTime !== newSignal.candleTime);
+              return [...filtered, newSignal].slice(-20);
             });
           }
         } catch (err) {
@@ -146,13 +154,16 @@ const App: React.FC = () => {
         }
       };
 
-      aiInterval = setInterval(backgroundScan, 30000);
+      // Check every 10 seconds for a new candle close, but the internal logic 
+      // ensures we only call the API once per candle.
+      aiInterval = setInterval(backgroundScan, 10000);
+      backgroundScan(); // Initial check
     }
 
     return () => {
       if (aiInterval) clearInterval(aiInterval);
     };
-  }, [config.enableAISignals, symbol, timeframe, data.length > 0]);
+  }, [config.enableAISignals, symbol, timeframe, data.length]); // Added data.length to respond to new candles
 
   // Live Tick Updates (Real Price Polling)
   useEffect(() => {
