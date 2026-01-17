@@ -1,0 +1,5 @@
+{
+  "name": "GainzAlgo Pro Viewer",
+  "description": "Professional trading visualization tool featuring real-time tick simulation, multi-asset support, and the proprietary GainzAlgo indicator system for Entry, TP, and SL detection.",
+  "requestFramePermissions": []
+}
