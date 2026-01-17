@@ -46,8 +46,9 @@ export const analyzeWithGemini = async (
     ${JSON.stringify(recentSignals)}
 
     TASK:
-    1. Provide a professional market analysis in Markdown.
-    2. Identify 1-3 highly probable AI-driven trade signals (Buy/Sell) based on price action and logic that might have been missed by standard algos.
+    1. Provide a professional market analysis in Markdown focusing on current structure and immediate bias.
+    2. Identify the SINGLE most probable, high-conviction trade setup (Buy or Sell). 
+    3. Do NOT provide a setup if no high-probability opportunity exists (Confidence must be > 70%).
     
     FORMAT YOUR ENTIRE RESPONSE AS A JSON OBJECT:
     {
@@ -58,14 +59,14 @@ export const analyzeWithGemini = async (
           "entryPrice": number,
           "stopLoss": number,
           "takeProfit": number,
-          "reason": "String explanation (max 10 words)",
-          "confidence": number (0-100),
-          "candleTime": number (The timestamp of the candle where this signal occurs. Use a timestamp from the provided data.)
+          "reason": "Clear explanation of why this is the top pick (max 15 words)",
+          "confidence": number (70-100),
+          "candleTime": number (The timestamp of the candle where this signal occurs.)
         }
       ]
     }
 
-    CRITICAL: ONLY respond with the JSON object. Do not include markdown code blocks or any other text.
+    CRITICAL: Only 1 setup allowed. ONLY respond with the JSON object. Do not include markdown code blocks.
   `;
 
   // --- Try Groq First ---
