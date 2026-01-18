@@ -1,0 +1,8 @@
+{
+    "rewrites": [
+        {
+            "source": "/market-api/(.*)",
+            "destination": "https://www.bitstamp.net/api/v2/$1"
+        }
+    ]
+}

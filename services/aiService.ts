@@ -8,6 +8,11 @@ export interface AIAnalysisResponse {
   provider?: string;
 }
 
+// Helper to detect if a key is a placeholder or empty
+const isValidKey = (key: string): boolean => {
+  return !!key && key !== "your_key_here" && !key.includes("insert_");
+};
+
 // Robust env retrieval for Vite
 const getEnv = (key: string): string => {
   return (import.meta as any).env[key] || (process.env as any)[key] || "";
@@ -51,32 +56,42 @@ export const analyzeWithGemini = async (
     ${JSON.stringify(recentSignals)}
 
     TASK:
-    1. Provide a professional market analysis in Markdown focusing on current structure and immediate bias.
-    2. Identify the SINGLE most probable, high-conviction trade setup (Buy or Sell) based specifically on the price action of the LATEST candle (the last one in the dataset).
-    3. Do NOT provide a setup if no high-probability opportunity exists (Confidence must be > 75%).
-    4. Ensure the 'candleTime' in your response matches the timestamp of the VERY LAST candle in the provided Market Data.
+    1. **ELABORATE ANALYSIS**: Provide a comprehensive, professional market analysis in Markdown. This must be detailed and insightful, not just a summary. 
+       Use the following structure:
+       - **## 📊 MARKET OVERVIEW**: Current trend bias, momentum strength, and overall sentiment.
+       - **## 📉 PRICE ACTION & VOLATILITY**: Discussion on recent candle structures, volume patterns, and ATR-based volatility.
+       - **## 🗺️ KEY STRATEGIC LEVELS**: Identify specific Support/Resistance zones and liquidity pockets.
+       - **## 🛠️ TACTICAL EXECUTION PLAN**: A dedicated, detailed trade setup analysis that includes:
+         - *Strategic Entry Zone*
+         - *Aggressive vs. Conservative Take Profit targets*
+         - *Hard Invalidation Point (Stop Loss logic)*
+         - *Risk-to-Reward Ratio analysis*
+    
+    2. **ALPHA SIGNAL**: Identify the SINGLE most probable, high-conviction trade setup (Buy or Sell) for the structured side-panel. This signal must be based on the LATEST candle.
+    3. **CONFIDENCE FILTER**: Confidence must be > 75% for an Alpha Signal. If it's lower, still provide the elaborate analysis but return an empty 'aiSignals' array.
+    4. **CONSISTENCY**: Ensure the 'candleTime' in the JSON matches the timestamp of the VERY LAST candle in the provided data.
     
     FORMAT YOUR ENTIRE RESPONSE AS A JSON OBJECT:
     {
-      "analysis": "Your markdown analysis here...",
+      "analysis": "Your extremely detailed markdown analysis here...",
       "aiSignals": [
         {
           "type": "LONG" | "SHORT",
           "entryPrice": number,
           "stopLoss": number,
           "takeProfit": number,
-          "reason": "Clear explanation of why this is relevant to the LATEST candle (max 15 words)",
-          "confidence": number (75-100),
-          "candleTime": number (The timestamp of the VERY LAST candle in the market data array.)
+          "reason": "Short summary of the core logic",
+          "confidence": number,
+          "candleTime": number
         }
       ]
     }
 
-    CRITICAL: Only 1 setup allowed. ONLY provide a signal if it is valid for the LATEST candle. If no setup exists for the current moment, return an empty 'aiSignals' array. ONLY respond with the JSON object. Do not include markdown code blocks.
+    CRITICAL: The analysis must be long, professional, and data-driven. Do not be generic. Mention specific prices from the data. ONLY respond with the JSON object.
   `;
 
   // --- 1. Try Meta AI (Llama 3) First (Fallback to Groq) ---
-  if (metaKey) {
+  if (isValidKey(metaKey)) {
     try {
       const meta = new OpenAI({
         apiKey: metaKey,
@@ -104,7 +119,7 @@ export const analyzeWithGemini = async (
   }
 
   // --- 2. Try Groq (Second in Chain) ---
-  if (groqKey) {
+  if (isValidKey(groqKey)) {
     try {
       const groq = new OpenAI({
         apiKey: groqKey,
@@ -133,7 +148,7 @@ export const analyzeWithGemini = async (
 
   // --- 3. Try Gemini (Final Fallback) ---
   try {
-    if (!geminiKey) throw new Error("No API keys available.");
+    if (!isValidKey(geminiKey)) throw new Error("No API keys available.");
 
     const ai = new GoogleGenAI({ apiKey: geminiKey });
 

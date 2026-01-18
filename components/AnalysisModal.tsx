@@ -19,94 +19,167 @@ const AnalysisModal: React.FC<Props> = ({ isOpen, onClose, content, signals = []
   const aiSignals = signals.filter(s => s.isAI);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 md:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-[#14151a] w-full max-w-5xl max-h-[95vh] md:max-h-[85vh] rounded-3xl border border-[#1e1e24] shadow-2xl flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 md:p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
+      <div className="bg-[#0b0c10] w-full max-w-6xl max-h-[95vh] md:max-h-[85vh] rounded-[2rem] border border-[#23242b] shadow-[0_0_50px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="p-4 md:p-6 border-b border-[#1e1e24] flex items-center justify-between bg-[#1a1b23]/50">
+        <div className="p-5 md:p-8 border-b border-[#23242b] flex items-center justify-between bg-gradient-to-r from-[#14151a] to-[#0b0c10]">
           <div>
-            <h2 className="text-xl md:text-2xl font-black text-white tracking-tighter">
-              INTELLIGENCE
-              <div className="inline-block px-2 py-0.5 bg-indigo-600 text-[10px] rounded ml-2 align-middle uppercase">PRO</div>
+            <h2 className="text-2xl md:text-3xl font-black text-white tracking-tighter flex items-center gap-3">
+              <Bot size={28} className="text-indigo-500" />
+              GAINZALGO INTELLIGENCE
+              <div className="px-2 py-0.5 bg-indigo-600 text-[10px] rounded align-middle uppercase tracking-widest">QUANTUM</div>
               {provider && (
-                <div className="inline-block px-2 py-0.5 bg-white/10 text-[9px] text-gray-400 rounded ml-1 align-middle border border-white/5 font-mono">
+                <div className="px-2 py-0.5 bg-white/5 text-[9px] text-gray-500 rounded border border-white/10 font-mono">
                   {provider}
                 </div>
               )}
             </h2>
-            <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Llama 3.3-70B Deep Market Analysis</p>
+            <p className="text-[10px] text-gray-400 uppercase tracking-[0.3em] mt-2 font-bold opacity-70">Strategic Market Reconstruction // Multi-Layer Depth Analysis</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors">
-            <X size={20} className="text-gray-400" />
+          <button onClick={onClose} className="p-3 hover:bg-white/5 rounded-full transition-all hover:rotate-90">
+            <X size={24} className="text-gray-500 hover:text-white" />
           </button>
         </div>
 
         {/* Content Body - Responsive Stack */}
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
           {/* Analysis View */}
-          <div className="flex-1 p-4 md:p-8 overflow-y-auto custom-scrollbar border-b md:border-b-0 md:border-r border-[#1e1e24]">
-            <article className="prose prose-invert prose-sm max-w-none prose-p:text-gray-300 prose-headings:text-white prose-strong:text-emerald-400 prose-code:text-indigo-300 prose-pre:bg-[#0d0e12]">
-              <ReactMarkdown>{content}</ReactMarkdown>
-            </article>
+          <div className="flex-1 p-6 md:p-10 overflow-y-auto custom-scrollbar border-b md:border-b-0 md:border-r border-[#23242b] bg-[#0d0e12]/40">
+            <div className="max-w-3xl">
+              {/* Quick Guide / Legend */}
+              <div className="mb-10 p-5 bg-indigo-500/5 rounded-2xl border border-indigo-500/10 flex flex-wrap gap-6 items-center">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Bullish Momentum</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Bearish Pressure</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Neural Logic</span>
+                </div>
+                <div className="ml-auto flex items-center gap-2 px-3 py-1 bg-white/5 rounded-lg border border-white/5">
+                  <Bot size={12} className="text-indigo-400" />
+                  <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter">Usage: Cross-verify with Technicals</span>
+                </div>
+              </div>
+
+              <article className="prose prose-invert prose-base max-w-none 
+                prose-p:text-gray-300 prose-p:leading-relaxed prose-p:mb-6
+                prose-headings:text-white prose-headings:font-black prose-headings:tracking-tight
+                prose-h2:text-indigo-400 prose-h2:border-b prose-h2:border-indigo-500/20 prose-h2:pb-2 prose-h2:mt-12 prose-h2:mb-6
+                prose-h3:text-emerald-400 prose-h3:mt-8
+                prose-strong:text-emerald-400 prose-strong:font-bold prose-strong:bg-emerald-400/5 prose-strong:px-1 prose-strong:rounded
+                prose-ul:my-6 prose-li:text-gray-400 prose-li:marker:text-indigo-500
+                prose-blockquote:border-l-indigo-500 prose-blockquote:bg-indigo-500/5 prose-blockquote:py-2 prose-blockquote:px-6 prose-blockquote:rounded-r-xl prose-blockquote:italic
+                ">
+                <ReactMarkdown>{content}</ReactMarkdown>
+              </article>
+            </div>
           </div>
 
           {/* AI Signals Sidebar */}
-          <div className="w-full md:w-80 bg-[#0d0e12] p-4 md:p-6 overflow-y-auto custom-scrollbar">
-            <div className="text-[10px] font-bold uppercase text-indigo-400 mb-6 tracking-[0.2em] flex items-center gap-2">
-              <Target size={14} />
-              Alpha Setup Only
+          <div className="w-full md:w-[360px] bg-[#08090d] p-6 md:p-8 overflow-y-auto custom-scrollbar shadow-inner flex flex-col">
+            <div className="flex flex-col gap-1 mb-8">
+              <div className="text-[10px] font-black uppercase text-indigo-400 tracking-[0.3em] flex items-center gap-2">
+                <Target size={14} className="animate-pulse" />
+                Structural Alpha
+              </div>
+              <p className="text-[9px] text-gray-600 font-bold uppercase tracking-widest">High-Conviction Machine Learning Setup</p>
             </div>
 
             {aiSignals.length > 0 ? (
-              <div className="space-y-4">
+              <div className="space-y-6 mb-10">
                 {aiSignals.map((sig, idx) => (
-                  <div key={idx} className={`p-5 rounded-2xl border transition-all duration-500 shadow-xl ${sig.type === 'LONG' ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
-                    <div className="flex items-center justify-between mb-4">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest ${sig.type === 'LONG' ? 'bg-emerald-500 text-black' : 'bg-red-500 text-white'}`}>
+                  <div key={idx} className={`p-6 rounded-[1.5rem] border transition-all duration-500 shadow-2xl relative overflow-hidden group ${sig.type === 'LONG' ? 'border-emerald-500/20 bg-emerald-500/[0.02]' : 'border-red-500/20 bg-red-500/[0.02]'}`}>
+                    {/* Decorative Gradient Overlay */}
+                    <div className={`absolute inset-0 opacity-10 group-hover:opacity-20 transition-opacity duration-700 pointer-events-none ${sig.type === 'LONG' ? 'bg-gradient-to-br from-emerald-500/20 to-transparent' : 'bg-gradient-to-br from-red-500/20 to-transparent'}`} />
+
+                    <div className="flex items-center justify-between mb-6 relative z-10">
+                      <span className={`px-4 py-1.5 rounded-full text-[11px] font-black tracking-[0.2em] shadow-lg ${sig.type === 'LONG' ? 'bg-emerald-500 text-black' : 'bg-red-500 text-white'}`}>
                         {sig.type}
                       </span>
-                      <div className="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded text-[10px] font-mono font-bold text-gray-300">
+                      <div className="flex items-center gap-1.5 bg-black/40 border border-white/5 px-3 py-1.5 rounded-lg text-[10px] font-mono font-black text-gray-300">
                         {sig.confidence}% CONF
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3 mb-4">
-                      <div className="flex items-center justify-between p-2 bg-white/5 rounded-lg border border-white/5">
-                        <span className="text-[10px] text-gray-400 uppercase font-bold">Entry Pt</span>
-                        <span className="text-sm font-mono font-bold text-white">{sig.entryPrice.toFixed(4)}</span>
+                    <div className="grid grid-cols-1 gap-4 mb-6 relative z-10">
+                      <div className="flex flex-col gap-1 p-4 bg-white/[0.03] rounded-2xl border border-white/5 group-hover:border-white/10 transition-colors">
+                        <span className="text-[9px] text-gray-500 uppercase font-black tracking-widest">Entry Limit</span>
+                        <span className="text-lg font-mono font-bold text-white tracking-tight">{sig.entryPrice.toFixed(sig.entryPrice > 1000 ? 2 : 4)}</span>
                       </div>
-                      <div className="flex items-center justify-between p-2 bg-emerald-500/5 rounded-lg border border-emerald-500/10">
-                        <span className="text-[10px] text-emerald-500 uppercase font-bold tracking-tight">Take Profit</span>
-                        <span className="text-sm font-mono font-bold text-emerald-400">{sig.takeProfit.toFixed(4)}</span>
-                      </div>
-                      <div className="flex items-center justify-between p-2 bg-red-500/5 rounded-lg border border-red-500/10">
-                        <span className="text-[10px] text-red-400 uppercase font-bold tracking-tight">Stop Loss</span>
-                        <span className="text-sm font-mono font-bold text-red-400">{sig.stopLoss.toFixed(4)}</span>
+
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 flex flex-col gap-1 p-4 bg-emerald-500/[0.03] rounded-2xl border border-emerald-500/10 hover:border-emerald-500/30 transition-colors">
+                          <span className="text-[9px] text-emerald-500 uppercase font-black tracking-widest">Target</span>
+                          <span className="text-base font-mono font-bold text-emerald-400">{sig.takeProfit.toFixed(sig.takeProfit > 1000 ? 2 : 4)}</span>
+                        </div>
+                        <div className="flex-1 flex flex-col gap-1 p-4 bg-red-500/[0.03] rounded-2xl border border-red-500/10 hover:border-red-500/30 transition-colors">
+                          <span className="text-[9px] text-red-400 uppercase font-black tracking-widest">Risk Off</span>
+                          <span className="text-base font-mono font-bold text-red-400">{sig.stopLoss.toFixed(sig.stopLoss > 1000 ? 2 : 4)}</span>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="text-[11px] text-gray-300 italic leading-relaxed bg-black/40 p-3 rounded-xl border border-white/5">
-                      <span className="text-indigo-400 font-bold mr-1">Logic:</span>
+                    <div className="text-[11px] text-gray-400 leading-relaxed bg-black/60 p-4 rounded-[1.2rem] border border-white/5 relative z-10 group-hover:text-gray-200 transition-colors">
+                      <span className="text-indigo-400 font-black mr-2 uppercase tracking-widest text-[9px]">Neural Driver:</span>
                       {sig.reason}
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="h-40 flex flex-col items-center justify-center text-center opacity-40">
-                <Target size={32} className="mb-2 text-gray-600" />
-                <p className="text-xs text-gray-500 font-medium">No high-conviction <br />alpha setups detected.</p>
+              <div className="h-60 flex flex-col items-center justify-center text-center opacity-30 px-6 mb-10">
+                <Target size={48} className="mb-4 text-gray-700" />
+                <p className="text-xs text-gray-600 font-bold uppercase tracking-widest leading-loose">
+                  Scanning for high probability <br /> market inefficiencies...
+                </p>
               </div>
             )}
+
+            {/* usage Help Section */}
+            <div className="mt-auto p-6 bg-indigo-500/5 rounded-[1.5rem] border border-indigo-500/10 shadow-lg">
+              <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <Shield size={14} />
+                Intelligence Guide
+              </h4>
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <p className="text-[9px] font-black text-white uppercase tracking-tighter">Alpha vs Tactical</p>
+                  <p className="text-[10px] text-gray-500 leading-tight">Alpha setups (sidebar) are high-precision entries. Tactical plans (main text) provide broad strategic context.</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[9px] font-black text-white uppercase tracking-tighter">Neural Logic</p>
+                  <p className="text-[10px] text-gray-500 leading-tight">The Neural Driver explains the core "why" behind an AI signal. Always align this with Technical indicators.</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[9px] font-black text-white uppercase tracking-tighter">Risk Caution</p>
+                  <p className="text-[10px] text-gray-400 italic leading-tight border-l border-indigo-500/30 pl-2">Intelligence is probabilistic. Never risk more than 1% per setup.</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Action Bar */}
-        <div className="p-4 border-t border-[#1e1e24] bg-[#1a1b23]/80 flex justify-end">
+        <div className="p-6 border-t border-[#23242b] bg-[#08090d] flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
+              Live Feed
+            </div>
+            <div className="w-1 h-1 bg-gray-700 rounded-full" />
+            No Financial Advice
+          </div>
           <button
             onClick={onClose}
-            className="px-8 py-3 bg-white text-black text-xs font-black uppercase tracking-widest rounded-xl hover:bg-emerald-400 transition-all active:scale-95"
+            className="w-full md:w-auto px-12 py-4 bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-[0_10px_20px_rgba(79,70,229,0.3)] transition-all active:scale-95 group flex items-center justify-center gap-3"
           >
             Acknowledge Intelligence
+            <Bot size={18} className="group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
       </div>

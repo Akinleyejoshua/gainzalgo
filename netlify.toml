@@ -1,0 +1,5 @@
+[[redirects]]
+  from = "/market-api/*"
+  to = "https://www.bitstamp.net/api/v2/:splat"
+  status = 200
+  force = true

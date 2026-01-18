@@ -169,44 +169,56 @@ const generateHistoryFallback = (
     return x - Math.floor(x);
   };
 
-  const dayStart = Math.floor(startTime / 86400000) * 86400000;
+  // We walk in 1-minute steps since the start time.
+  // This ensures that for a given (t), the price is the same across all timeframes.
   const volMult = symbol.type === 'CRYPTO' ? 1.5 : 0.5;
 
-  // 1. Calculate the relative drift from dayStart to alignedNow
-  let relativePrice = 1.0;
-  for (let t = dayStart; t < alignedNow; t += timeframe.ms) {
-    const stepSeed = baseSeed + (t / timeframe.ms);
+  // 1. Pre-calculate the entire 1-minute resolution path for the required period
+  const minutePath = new Map<number, number>();
+  let p = 1.0;
+
+  // To make it continuous and consistent, we start "walking" from a fixed point (startTime)
+  // or a day-boundary. Let's use startTime but the price evolution itself is seeded by timestamp.
+  // Actually, to be truly consistent across timeframes, we should walk from a fixed point common to all.
+  const masterWalkStart = Math.floor(startTime / 3600000) * 3600000; // Align to hour
+
+  for (let t = masterWalkStart; t <= alignedNow; t += 60000) {
+    const stepSeed = baseSeed + (t / 60000);
     const r1 = getRand(stepSeed);
-    relativePrice += (r1 - 0.5) * symbol.volatility * relativePrice * 0.04 * volMult;
+    p += (r1 - 0.5) * symbol.volatility * p * 0.003 * volMult;
+    minutePath.set(t, p);
   }
 
-  // 2. Determine start price for day. If targetPrice is given, solve for dayStartPrice.
-  // EndPrice = DayStartPrice * relativePrice => DayStartPrice = EndPrice / relativePrice
-  const endPrice = targetPrice ?? (symbol.basePrice * (1 + (getRand(baseSeed + dayStart / 86400000) - 0.5) * 0.1));
-  let p = endPrice / relativePrice;
+  // 2. Adjust for targetPrice so the last candle matches real price (if provided)
+  const endRelPrice = minutePath.get(alignedNow) || p;
+  const absoluteBase = (targetPrice ?? symbol.basePrice) / endRelPrice;
 
   const data: Candle[] = [];
 
-  // 3. Generate the actual walk
-  for (let t = dayStart; t <= alignedNow; t += timeframe.ms) {
-    const stepSeed = baseSeed + (t / timeframe.ms);
-    const r1 = getRand(stepSeed);
+  // 3. Construct candles for the requested timeframe by aggregating 1m steps
+  for (let t = startTime; t <= alignedNow; t += timeframe.ms) {
+    const pricesInBar: number[] = [];
 
-    const move = (r1 - 0.5) * symbol.volatility * p * 0.04 * volMult;
+    for (let mt = t; mt < t + timeframe.ms; mt += 60000) {
+      const mp = minutePath.get(mt);
+      if (mp !== undefined) {
+        pricesInBar.push(mp * absoluteBase);
+      }
+    }
 
-    const open = p;
-    const close = p + move;
-    const high = Math.max(open, close) + getRand(stepSeed * 1.1) * Math.abs(move) * 0.6;
-    const low = Math.min(open, close) - getRand(stepSeed * 1.2) * Math.abs(move) * 0.6;
+    if (pricesInBar.length > 0) {
+      const open = pricesInBar[0];
+      const close = pricesInBar[pricesInBar.length - 1];
+      const high = Math.max(...pricesInBar);
+      const low = Math.min(...pricesInBar);
 
-    if (t >= startTime) {
+      const volSeed = baseSeed + (t / 60000);
       data.push({
         time: t,
         open, high, low, close,
-        volume: Math.floor(1000 + getRand(stepSeed * 1.3) * 5000)
+        volume: Math.floor(1000 + getRand(volSeed) * 5000)
       });
     }
-    p = close;
   }
 
   return data;
