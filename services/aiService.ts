@@ -206,16 +206,55 @@ export const analyzeWithGemini = async (
 };
 
 const formatAISignals = (aiSignals: any[], latestCandleTime: number): Signal[] => {
-  return (aiSignals || []).map((s: any) => ({
-    id: `ai-sig-${latestCandleTime}-${Math.random().toString(36).substr(2, 5)}`,
-    candleTime: latestCandleTime,
-    type: s.type,
-    entryPrice: s.entryPrice,
-    stopLoss: s.stopLoss,
-    takeProfit: s.takeProfit,
-    status: 'ACTIVE',
-    reason: `[AI] ${s.reason}`,
-    confidence: s.confidence,
-    isAI: true
-  }));
+  return (aiSignals || []).map((s: any) => {
+    let { type, entryPrice, stopLoss, takeProfit } = s;
+
+    // --- SANITIZATION & SAFETY CHECKS ---
+    // Ensure numbers are valid
+    entryPrice = Number(entryPrice);
+    stopLoss = Number(stopLoss);
+    takeProfit = Number(takeProfit);
+
+    // 1. Validate Directions
+    if (type === 'LONG') {
+      // For BUY: TP must be > Entry, SL must be < Entry
+      if (takeProfit <= entryPrice) {
+        // AI Hallucination Fix: Recalculate TP based on Risk 1:2
+        const risk = Math.abs(entryPrice - stopLoss);
+        takeProfit = entryPrice + (risk * 2);
+      }
+      if (stopLoss >= entryPrice) {
+        // AI Hallucination Fix: Set default tight SL
+        stopLoss = entryPrice * 0.995;
+        // Re-adjust TP if needed
+        takeProfit = entryPrice + ((entryPrice - stopLoss) * 2);
+      }
+    } else if (type === 'SHORT') {
+      // For SELL: TP must be < Entry, SL must be > Entry
+      if (takeProfit >= entryPrice) {
+        // AI Hallucination Fix: Recalculate TP based on Risk 1:2
+        const risk = Math.abs(stopLoss - entryPrice);
+        takeProfit = entryPrice - (risk * 2);
+      }
+      if (stopLoss <= entryPrice) {
+        // AI Hallucination Fix: Set default tight SL
+        stopLoss = entryPrice * 1.005;
+        // Re-adjust TP
+        takeProfit = entryPrice - ((stopLoss - entryPrice) * 2);
+      }
+    }
+
+    return {
+      id: `ai-sig-${latestCandleTime}-${Math.random().toString(36).substr(2, 5)}`,
+      candleTime: latestCandleTime,
+      type: type,
+      entryPrice: entryPrice,
+      stopLoss: stopLoss,
+      takeProfit: takeProfit,
+      status: 'ACTIVE',
+      reason: `[AI] ${s.reason}`,
+      confidence: s.confidence,
+      isAI: true
+    };
+  });
 };
