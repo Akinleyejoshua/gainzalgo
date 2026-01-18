@@ -10,9 +10,10 @@ interface Props {
   onClose: () => void;
   content: string;
   signals?: Signal[];
+  provider?: string;
 }
 
-const AnalysisModal: React.FC<Props> = ({ isOpen, onClose, content, signals = [] }) => {
+const AnalysisModal: React.FC<Props> = ({ isOpen, onClose, content, signals = [], provider }) => {
   if (!isOpen) return null;
 
   const aiSignals = signals.filter(s => s.isAI);
@@ -23,7 +24,15 @@ const AnalysisModal: React.FC<Props> = ({ isOpen, onClose, content, signals = []
         {/* Header */}
         <div className="p-4 md:p-6 border-b border-[#1e1e24] flex items-center justify-between bg-[#1a1b23]/50">
           <div>
-            <h2 className="text-xl md:text-2xl font-black text-white tracking-tighter">INTELLIGENCE <div className="inline-block px-2 py-0.5 bg-indigo-600 text-[10px] rounded ml-2 align-middle">PRO</div></h2>
+            <h2 className="text-xl md:text-2xl font-black text-white tracking-tighter">
+              INTELLIGENCE
+              <div className="inline-block px-2 py-0.5 bg-indigo-600 text-[10px] rounded ml-2 align-middle uppercase">PRO</div>
+              {provider && (
+                <div className="inline-block px-2 py-0.5 bg-white/10 text-[9px] text-gray-400 rounded ml-1 align-middle border border-white/5 font-mono">
+                  {provider}
+                </div>
+              )}
+            </h2>
             <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Llama 3.3-70B Deep Market Analysis</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors">

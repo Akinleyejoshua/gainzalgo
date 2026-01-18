@@ -5,6 +5,7 @@ import { Candle, Signal, SymbolDef } from '../types';
 export interface AIAnalysisResponse {
   analysis: string;
   signals: Signal[];
+  provider?: string;
 }
 
 // Robust env retrieval for Vite
@@ -18,6 +19,10 @@ export const analyzeWithGemini = async (
   candles: Candle[],
   existingSignals: Signal[]
 ): Promise<AIAnalysisResponse> => {
+  const metaKey = getEnv("VITE_META_AI_API_KEY") || getEnv("META_AI_API_KEY");
+  const metaBase = getEnv("VITE_META_AI_BASE_URL") || 'https://api.openai.com/v1'; // Default to OpenAI compatible
+  const metaModel = getEnv("VITE_META_AI_MODEL") || 'meta-llama/llama-3.1-70b-instruct';
+
   const groqKey = getEnv("VITE_GROQ_API_KEY") || getEnv("GROK_API_KEY");
   const groqBase = getEnv("VITE_GROQ_BASE_URL") || 'https://api.groq.com/openai/v1';
   const geminiKey = getEnv("VITE_GEMINI_API_KEY") || getEnv("GEMINI_API_KEY");
@@ -70,7 +75,35 @@ export const analyzeWithGemini = async (
     CRITICAL: Only 1 setup allowed. ONLY provide a signal if it is valid for the LATEST candle. If no setup exists for the current moment, return an empty 'aiSignals' array. ONLY respond with the JSON object. Do not include markdown code blocks.
   `;
 
-  // --- Try Groq First ---
+  // --- 1. Try Meta AI (Llama 3) First (Fallback to Groq) ---
+  if (metaKey) {
+    try {
+      const meta = new OpenAI({
+        apiKey: metaKey,
+        baseURL: metaBase,
+        dangerouslyAllowBrowser: true
+      });
+
+      const response = await meta.chat.completions.create({
+        model: metaModel,
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" }
+      });
+
+      const responseText = (response.choices[0].message.content || "{}").replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(responseText);
+
+      return {
+        analysis: parsed.analysis || "Analysis completed.",
+        signals: formatAISignals(parsed.aiSignals),
+        provider: "Meta AI (Llama 3)"
+      };
+    } catch (error) {
+      console.warn("Meta AI Analysis failed, falling back to Groq:", error);
+    }
+  }
+
+  // --- 2. Try Groq (Second in Chain) ---
   if (groqKey) {
     try {
       const groq = new OpenAI({
@@ -90,14 +123,15 @@ export const analyzeWithGemini = async (
 
       return {
         analysis: parsed.analysis || "Analysis completed.",
-        signals: formatAISignals(parsed.aiSignals)
+        signals: formatAISignals(parsed.aiSignals),
+        provider: "Groq"
       };
     } catch (error) {
-      console.error("Groq Analysis failed, falling back to Gemini:", error);
+      console.warn("Groq Analysis failed, falling back to Gemini:", error);
     }
   }
 
-  // --- Fallback to Gemini ---
+  // --- 3. Try Gemini (Final Fallback) ---
   try {
     if (!geminiKey) throw new Error("No API keys available.");
 
@@ -116,13 +150,15 @@ export const analyzeWithGemini = async (
 
     return {
       analysis: parsed.analysis || "Analysis completed.",
-      signals: formatAISignals(parsed.aiSignals)
+      signals: formatAISignals(parsed.aiSignals),
+      provider: "Google Gemini"
     };
   } catch (error) {
     console.error("All AI providers failed:", error);
     return {
-      analysis: "Error: AI analysis quota exceeded or service unavailable. Please check API keys.",
-      signals: []
+      analysis: "Error: All AI providers (Meta, Groq, Gemini) failed or have no API keys configured.",
+      signals: [],
+      provider: "None"
     };
   }
 };

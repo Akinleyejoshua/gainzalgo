@@ -51,6 +51,7 @@ const App: React.FC = () => {
   const [analysisResult, setAnalysisResult] = useState("");
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [aiSignals, setAiSignals] = useState<Signal[]>([]);
+  const [activeProvider, setActiveProvider] = useState<string>("");
   const lastScannedCandleTime = useRef<number>(0);
 
   // Refs for interval management
@@ -219,6 +220,7 @@ const App: React.FC = () => {
     try {
       const result = await analyzeWithGemini(symbol, timeframe, data, signals);
       setAnalysisResult(result.analysis);
+      setActiveProvider(result.provider || "");
 
       if (config.enableAISignals) {
         setAiSignals(result.signals);
@@ -318,6 +320,7 @@ const App: React.FC = () => {
         onClose={() => setShowAnalysis(false)}
         content={analysisResult}
         signals={signals}
+        provider={activeProvider}
       />
     </div>
   );
