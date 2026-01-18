@@ -184,9 +184,12 @@ const App: React.FC = () => {
 
         // Check if we need a new candle
         if (now - lastCandle.time >= currentTfMs) {
+          // Calculate the exact aligned time for the new candle
+          const alignedTime = Math.floor(now / currentTfMs) * currentTfMs;
+
           const newCandleBase = {
             ...lastCandle,
-            time: lastCandle.time + currentTfMs,
+            time: alignedTime,
             open: lastCandle.close,
             high: lastCandle.close,
             low: lastCandle.close,
@@ -256,6 +259,8 @@ const App: React.FC = () => {
             if (window.innerWidth < 1024) setSidebarOpen(false);
           }}
           onTimeframeChange={(tf) => {
+            if (tf === timeframe) return;
+            setData([]); // Clear data to show loading and prevent alignment issues
             setTimeframe(tf);
             if (window.innerWidth < 1024) setSidebarOpen(false);
           }}

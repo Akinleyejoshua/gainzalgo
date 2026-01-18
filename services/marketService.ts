@@ -142,58 +142,73 @@ export const fetchHistory = async (
     })).sort((a: Candle, b: Candle) => a.time - b.time);
   } catch (error) {
     console.warn(`Market API Down, using Deterministic Fallback for ${symbol.id}:`, error);
-    return generateHistoryFallback(symbol, timeframeId, count);
+    // Try to get at least one real price to anchor the fallback
+    const latestPrice = await fetchLatestTick(symbol);
+    return generateHistoryFallback(symbol, timeframeId, count, latestPrice ?? undefined);
   }
 };
 
-// Improved Deterministic Generator: Uses symbol + current hour as seed
-// This ensures the chart is SAME on every refresh even if offline.
 const generateHistoryFallback = (
   symbol: SymbolDef,
   timeframeId: string,
-  count: number = 200
+  count: number = 200,
+  targetPrice?: number
 ): Candle[] => {
   const timeframe = TIMEFRAMES.find(t => t.id === timeframeId) || TIMEFRAMES[0];
   const now = Date.now();
-  // Round to nearest Hour to keep chart static across refreshes within the same hour
-  const hourTs = Math.floor(now / 3600000) * 3600000;
-  let currentTime = (now - (now % timeframe.ms)) - (count * timeframe.ms);
 
-  let currentPrice = symbol.basePrice;
-  const data: Candle[] = [];
+  const alignedNow = Math.floor(now / timeframe.ms) * timeframe.ms;
+  const startTime = alignedNow - (count * timeframe.ms);
 
-  // Create a unique seed for this Symbol + Timeframe + Hour
-  const seedString = `${symbol.id}-${timeframeId}-${hourTs}`;
-  let seed = 0;
-  for (let i = 0; i < seedString.length; i++) seed += seedString.charCodeAt(i);
+  // Seed based purely on symbol ID
+  let baseSeed = 0;
+  for (let i = 0; i < symbol.id.length; i++) baseSeed += symbol.id.charCodeAt(i);
 
-  // Pre-generate a list of deterministic values to prevent drift
   const getRand = (s: number) => {
     const x = Math.sin(s) * 10000;
     return x - Math.floor(x);
   };
 
-  for (let i = 0; i < count; i++) {
-    const r1 = getRand(seed + i);
-    const r2 = getRand(seed + i * 2);
+  const dayStart = Math.floor(startTime / 86400000) * 86400000;
+  const volMult = symbol.type === 'CRYPTO' ? 1.5 : 0.5;
 
-    const volatility = symbol.volatility * (1 + getRand(seed + i * 3));
-    const move = (r1 - 0.5) * volatility * currentPrice * 0.1;
-
-    const open = currentPrice;
-    const close = currentPrice + move;
-    const high = Math.max(open, close) + getRand(seed + i * 4) * Math.abs(move);
-    const low = Math.min(open, close) - getRand(seed + i * 5) * Math.abs(move);
-
-    data.push({
-      time: currentTime,
-      open, high, low, close,
-      volume: Math.floor(1000 + getRand(seed + i * 6) * 5000)
-    });
-
-    currentPrice = close;
-    currentTime += timeframe.ms;
+  // 1. Calculate the relative drift from dayStart to alignedNow
+  let relativePrice = 1.0;
+  for (let t = dayStart; t < alignedNow; t += timeframe.ms) {
+    const stepSeed = baseSeed + (t / timeframe.ms);
+    const r1 = getRand(stepSeed);
+    relativePrice += (r1 - 0.5) * symbol.volatility * relativePrice * 0.04 * volMult;
   }
+
+  // 2. Determine start price for day. If targetPrice is given, solve for dayStartPrice.
+  // EndPrice = DayStartPrice * relativePrice => DayStartPrice = EndPrice / relativePrice
+  const endPrice = targetPrice ?? (symbol.basePrice * (1 + (getRand(baseSeed + dayStart / 86400000) - 0.5) * 0.1));
+  let p = endPrice / relativePrice;
+
+  const data: Candle[] = [];
+
+  // 3. Generate the actual walk
+  for (let t = dayStart; t <= alignedNow; t += timeframe.ms) {
+    const stepSeed = baseSeed + (t / timeframe.ms);
+    const r1 = getRand(stepSeed);
+
+    const move = (r1 - 0.5) * symbol.volatility * p * 0.04 * volMult;
+
+    const open = p;
+    const close = p + move;
+    const high = Math.max(open, close) + getRand(stepSeed * 1.1) * Math.abs(move) * 0.6;
+    const low = Math.min(open, close) - getRand(stepSeed * 1.2) * Math.abs(move) * 0.6;
+
+    if (t >= startTime) {
+      data.push({
+        time: t,
+        open, high, low, close,
+        volume: Math.floor(1000 + getRand(stepSeed * 1.3) * 5000)
+      });
+    }
+    p = close;
+  }
+
   return data;
 };
 
