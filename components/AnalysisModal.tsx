@@ -46,26 +46,6 @@ const AnalysisModal: React.FC<Props> = ({ isOpen, onClose, content, signals = []
           {/* Analysis View */}
           <div className="flex-1 p-6 md:p-10 overflow-y-auto custom-scrollbar border-b md:border-b-0 md:border-r border-[#23242b] bg-[#0d0e12]/40">
             <div className="max-w-3xl">
-              {/* Quick Guide / Legend */}
-              <div className="mb-10 p-5 bg-indigo-500/5 rounded-2xl border border-indigo-500/10 flex flex-wrap gap-6 items-center">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Bullish Momentum</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
-                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Bearish Pressure</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
-                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Neural Logic</span>
-                </div>
-                <div className="ml-auto flex items-center gap-2 px-3 py-1 bg-white/5 rounded-lg border border-white/5">
-                  <Bot size={12} className="text-indigo-400" />
-                  <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter">Usage: Cross-verify with Technicals</span>
-                </div>
-              </div>
-
               <article className="prose prose-invert prose-base max-w-none 
                 prose-p:text-gray-300 prose-p:leading-relaxed prose-p:mb-6
                 prose-headings:text-white prose-headings:font-black prose-headings:tracking-tight
@@ -91,7 +71,7 @@ const AnalysisModal: React.FC<Props> = ({ isOpen, onClose, content, signals = []
             </div>
 
             {aiSignals.length > 0 ? (
-              <div className="space-y-6 mb-10">
+              <div className="space-y-6">
                 {aiSignals.map((sig, idx) => (
                   <div key={idx} className={`p-6 rounded-[1.5rem] border transition-all duration-500 shadow-2xl relative overflow-hidden group ${sig.type === 'LONG' ? 'border-emerald-500/20 bg-emerald-500/[0.02]' : 'border-red-500/20 bg-red-500/[0.02]'}`}>
                     {/* Decorative Gradient Overlay */}
@@ -132,35 +112,13 @@ const AnalysisModal: React.FC<Props> = ({ isOpen, onClose, content, signals = []
                 ))}
               </div>
             ) : (
-              <div className="h-60 flex flex-col items-center justify-center text-center opacity-30 px-6 mb-10">
+              <div className="h-60 flex flex-col items-center justify-center text-center opacity-30 px-6">
                 <Target size={48} className="mb-4 text-gray-700" />
                 <p className="text-xs text-gray-600 font-bold uppercase tracking-widest leading-loose">
                   Scanning for high probability <br /> market inefficiencies...
                 </p>
               </div>
             )}
-
-            {/* usage Help Section */}
-            <div className="mt-auto p-6 bg-indigo-500/5 rounded-[1.5rem] border border-indigo-500/10 shadow-lg">
-              <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <Shield size={14} />
-                Intelligence Guide
-              </h4>
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <p className="text-[9px] font-black text-white uppercase tracking-tighter">Alpha vs Tactical</p>
-                  <p className="text-[10px] text-gray-500 leading-tight">Alpha setups (sidebar) are high-precision entries. Tactical plans (main text) provide broad strategic context.</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[9px] font-black text-white uppercase tracking-tighter">Neural Logic</p>
-                  <p className="text-[10px] text-gray-500 leading-tight">The Neural Driver explains the core "why" behind an AI signal. Always align this with Technical indicators.</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[9px] font-black text-white uppercase tracking-tighter">Risk Caution</p>
-                  <p className="text-[10px] text-gray-400 italic leading-tight border-l border-indigo-500/30 pl-2">Intelligence is probabilistic. Never risk more than 1% per setup.</p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
