@@ -113,8 +113,12 @@ export const analyzeWithGemini = async (
         signals: formatAISignals(parsed.aiSignals),
         provider: "Meta AI (Llama 3)"
       };
-    } catch (error) {
-      console.warn("Meta AI Analysis failed, falling back to Groq:", error);
+    } catch (error: any) {
+      if (error?.status === 429) {
+        console.warn("Meta AI Rate Limit (429), falling back...");
+      } else {
+        console.warn("Meta AI Analysis failed, falling back to Groq:", error);
+      }
     }
   }
 
@@ -141,8 +145,12 @@ export const analyzeWithGemini = async (
         signals: formatAISignals(parsed.aiSignals),
         provider: "Groq"
       };
-    } catch (error) {
-      console.warn("Groq Analysis failed, falling back to Gemini:", error);
+    } catch (error: any) {
+      if (error?.status === 429) {
+        console.warn("Groq Rate Limit (429), falling back to Gemini...");
+      } else {
+        console.warn("Groq Analysis failed, falling back to Gemini:", error);
+      }
     }
   }
 
