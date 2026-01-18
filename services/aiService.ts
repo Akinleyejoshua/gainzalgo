@@ -13,6 +13,10 @@ const isValidKey = (key: string): boolean => {
   return !!key && key !== "your_key_here" && !key.includes("insert_");
 };
 
+// Rate limiting prevention
+let lastRequestTime = 0;
+const COOLDOWN_MS = 20000; // 20 second cooldown between AI triggers
+
 // Robust env retrieval for Vite
 const getEnv = (key: string): string => {
   return (import.meta as any).env[key] || (process.env as any)[key] || "";
@@ -31,6 +35,17 @@ export const analyzeWithGemini = async (
   const groqKey = getEnv("VITE_GROQ_API_KEY") || getEnv("GROK_API_KEY");
   const groqBase = getEnv("VITE_GROQ_BASE_URL") || 'https://api.groq.com/openai/v1';
   const geminiKey = getEnv("VITE_GEMINI_API_KEY") || getEnv("GEMINI_API_KEY");
+
+  // --- Frequency Protection ---
+  const now = Date.now();
+  if (now - lastRequestTime < COOLDOWN_MS) {
+    return {
+      analysis: "Intelligence scan throttled. Please wait 20s between requests to prevent API rate limits.",
+      signals: [],
+      provider: "Throttled"
+    };
+  }
+  lastRequestTime = now;
 
   // --- Data Preparation (Common) ---
   const dataWindow = 30;
@@ -90,7 +105,9 @@ export const analyzeWithGemini = async (
     CRITICAL: The analysis must be long, professional, and data-driven. Do not be generic. Mention specific prices from the data. ONLY respond with the JSON object.
   `;
 
-  // --- 1. Try Meta AI (Llama 3) First (Fallback to Groq) ---
+  const providerErrors: string[] = [];
+
+  // --- 1. Try Meta AI (Llama 3) First ---
   if (isValidKey(metaKey)) {
     try {
       const meta = new OpenAI({
@@ -114,15 +131,15 @@ export const analyzeWithGemini = async (
         provider: "Meta AI (Llama 3)"
       };
     } catch (error: any) {
-      if (error?.status === 429) {
-        console.warn("Meta AI Rate Limit (429), falling back...");
-      } else {
-        console.warn("Meta AI Analysis failed, falling back to Groq:", error);
-      }
+      const status = error?.status;
+      providerErrors.push(`Meta AI: ${status === 429 ? 'Rate Limit' : 'Error ' + (status || 'Unknown')}`);
+      console.warn("Meta AI Analysis failed, trying Groq:", error);
     }
+  } else {
+    providerErrors.push("Meta AI: No valid API key.");
   }
 
-  // --- 2. Try Groq (Second in Chain) ---
+  // --- 2. Try Groq ---
   if (isValidKey(groqKey)) {
     try {
       const groq = new OpenAI({
@@ -146,44 +163,45 @@ export const analyzeWithGemini = async (
         provider: "Groq"
       };
     } catch (error: any) {
-      if (error?.status === 429) {
-        console.warn("Groq Rate Limit (429), falling back to Gemini...");
-      } else {
-        console.warn("Groq Analysis failed, falling back to Gemini:", error);
-      }
+      const status = error?.status;
+      providerErrors.push(`Groq: ${status === 429 ? 'Rate Limit' : 'Error ' + (status || 'Unknown')}`);
+      console.warn("Groq Analysis failed, trying Gemini:", error);
     }
+  } else {
+    providerErrors.push("Groq: No valid API key.");
   }
 
   // --- 3. Try Gemini (Final Fallback) ---
-  try {
-    if (!isValidKey(geminiKey)) throw new Error("No API keys available.");
+  if (isValidKey(geminiKey)) {
+    try {
+      const genAI = new (GoogleGenAI as any)(geminiKey);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    const ai = new GoogleGenAI({ apiKey: geminiKey });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const responseText = response.text().replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(responseText);
 
-    const result = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: {
-        responseMimeType: 'application/json'
-      }
-    });
-
-    const responseText = (result.text || "{}").replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(responseText);
-
-    return {
-      analysis: parsed.analysis || "Analysis completed.",
-      signals: formatAISignals(parsed.aiSignals),
-      provider: "Google Gemini"
-    };
-  } catch (error) {
-    console.error("All AI providers failed:", error);
-    return {
-      analysis: "Error: All AI providers (Meta, Groq, Gemini) failed or have no API keys configured.",
-      signals: [],
-      provider: "None"
-    };
+      return {
+        analysis: parsed.analysis || "Analysis completed.",
+        signals: formatAISignals(parsed.aiSignals),
+        provider: "Google Gemini"
+      };
+    } catch (error: any) {
+      providerErrors.push(`Gemini: ${error?.message || 'Unknown Error'}`);
+      console.error("Gemini failed:", error);
+    }
+  } else {
+    providerErrors.push("Gemini: No valid API key.");
   }
+
+  // If we get here, everything failed
+  const errorReason = providerErrors.join(" | ");
+  return {
+    analysis: `### ⚠️ ANALYSIS FAILED\n\nAll AI providers in the chain failed to generate a response:\n\n**Diagnostic Log:**\n\`${errorReason}\`\n\n**Common Fixes:**\n1. Ensure you have at least one valid key in \`.env.local\`.\n2. If using the **1s timeframe**, wait 30s between scans to avoid Rate Limits (429).\n3. Check your internet connection.`,
+    signals: [],
+    provider: "None"
+  };
 };
 
 const formatAISignals = (aiSignals: any[]): Signal[] => {

@@ -128,8 +128,8 @@ const ControlPanel: React.FC<Props> = ({
                     key={st}
                     onClick={() => onConfigChange({ ...config, strategy: st })}
                     className={`px-3 py-2 rounded-xl text-[10px] font-bold transition-all border ${config.strategy === st
-                        ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500'
-                        : 'bg-transparent border-[#1e1e24] text-gray-500 hover:border-gray-700'
+                      ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500'
+                      : 'bg-transparent border-[#1e1e24] text-gray-500 hover:border-gray-700'
                       }`}
                   >
                     {st}
@@ -203,6 +203,22 @@ const ControlPanel: React.FC<Props> = ({
 
           {config.aiModeEnabled ? (
             <div className="space-y-4">
+              <div className="space-y-4 pt-4 border-t border-indigo-500/10">
+                <div className="flex justify-between items-center px-2">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] text-indigo-300 font-bold uppercase tracking-wider">Intelligence Window</span>
+                    <span className="text-[9px] text-gray-500 italic">Reduces Groq 429 rate limits</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-white bg-indigo-500/20 px-2 py-0.5 rounded-md border border-indigo-500/20">{config.aiLookback} candles</span>
+                </div>
+                <input
+                  type="range" min="20" max="500" step="10"
+                  value={config.aiLookback}
+                  onChange={e => onConfigChange({ ...config, aiLookback: parseInt(e.target.value) })}
+                  className="w-full h-1 bg-[#1e1e24] rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                />
+              </div>
+
               <label className="flex items-center justify-between text-xs text-gray-300 cursor-pointer p-2 rounded bg-indigo-500/5 border border-indigo-500/20 hover:bg-indigo-500/10 transition">
                 <div className="flex flex-col text-left">
                   <span className="text-indigo-300 font-bold">Signal Enhancement</span>

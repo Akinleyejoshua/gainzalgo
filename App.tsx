@@ -20,7 +20,8 @@ const DEFAULT_CONFIG: AlgoConfig = {
   useRSIFilter: false,
   useVolumeFilter: false,
   enableAISignals: false,
-  aiModeEnabled: false
+  aiModeEnabled: false,
+  aiLookback: 100 // Default to last 100 candles for efficient AI context
 };
 
 const App: React.FC = () => {
@@ -53,6 +54,7 @@ const App: React.FC = () => {
   const [aiSignals, setAiSignals] = useState<Signal[]>([]);
   const [activeProvider, setActiveProvider] = useState<string>("");
   const lastScannedCandleTime = useRef<number>(0);
+  const lastAIScanTimestamp = useRef<number>(0); // Cooldown for API requests
 
   // Refs for interval management
   const tickIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -134,12 +136,21 @@ const App: React.FC = () => {
       const backgroundScan = async () => {
         const lastCandle = data[data.length - 1];
 
+        // Hard Cooldown: Max 1 request every 30 seconds
+        const now = Date.now();
+        if (now - lastAIScanTimestamp.current < 30000) return;
+
         // Only scan if we haven't scanned this specific candle yet
         if (lastCandle.time === lastScannedCandleTime.current) return;
 
         try {
-          const result = await analyzeWithGemini(symbol, timeframe, data, signals);
+          // Optimization: Only send the requested lookback window to reduce tokens and rate limits
+          const slicedData = data.slice(-config.aiLookback);
+          const slicedSignals = signals.filter(s => s.candleTime >= (slicedData[0]?.time || 0));
+
+          const result = await analyzeWithGemini(symbol, timeframe, slicedData, slicedSignals);
           lastScannedCandleTime.current = lastCandle.time;
+          lastAIScanTimestamp.current = Date.now();
 
           if (result.signals.length > 0) {
             setAiSignals(prev => {
@@ -222,7 +233,10 @@ const App: React.FC = () => {
   const handleAIAnalysis = async () => {
     setIsAnalyzing(true);
     try {
-      const result = await analyzeWithGemini(symbol, timeframe, data, signals);
+      const slicedData = data.slice(-config.aiLookback);
+      const slicedSignals = signals.filter(s => s.candleTime >= (slicedData[0]?.time || 0));
+
+      const result = await analyzeWithGemini(symbol, timeframe, slicedData, slicedSignals);
       setAnalysisResult(result.analysis);
       setActiveProvider(result.provider || "");
 

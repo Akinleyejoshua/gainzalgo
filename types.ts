@@ -30,6 +30,7 @@ export interface AlgoConfig {
   useVolumeFilter: boolean;
   enableAISignals: boolean;
   aiModeEnabled: boolean;
+  aiLookback: number; // New: Number of candles to send for AI analysis
 }
 
 export interface Candle {
