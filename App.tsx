@@ -101,7 +101,7 @@ const App: React.FC = () => {
 
       if (isMounted) {
         setData(initialData);
-        const techSignals = calculateSignals(initialData, config);
+        const techSignals = calculateSignals(initialData, config, timeframe);
         setSignals(techSignals);
       }
     };
@@ -113,7 +113,7 @@ const App: React.FC = () => {
   // Recalculate signals if config changes or data updates
   useEffect(() => {
     if (data.length > 0) {
-      const techSignals = calculateSignals(data, config);
+      const techSignals = calculateSignals(data, config, timeframe);
       // Combine with AI signals if enabled
       if (config.enableAISignals) {
         const combined = [...techSignals, ...aiSignals];
@@ -210,7 +210,8 @@ const App: React.FC = () => {
       });
     };
 
-    tickIntervalRef.current = setInterval(updateTick, 2000);
+    const intervalRate = timeframe === '1s' ? 500 : 2000;
+    tickIntervalRef.current = setInterval(updateTick, intervalRate);
 
     return () => {
       if (tickIntervalRef.current) clearInterval(tickIntervalRef.current);

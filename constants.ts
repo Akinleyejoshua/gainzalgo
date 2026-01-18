@@ -11,6 +11,7 @@ export const SUPPORTED_SYMBOLS: SymbolDef[] = [
 ];
 
 export const TIMEFRAMES = [
+  { id: '1s', label: '1s', ms: 1000 },
   { id: '1m', label: '1m', ms: 60 * 1000 },
   { id: '5m', label: '5m', ms: 5 * 60 * 1000 },
   { id: '15m', label: '15m', ms: 15 * 60 * 1000 },

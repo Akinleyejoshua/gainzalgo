@@ -119,6 +119,12 @@ export const fetchHistory = async (
   timeframeId: string,
   count: number = 300
 ): Promise<Candle[]> => {
+  // Directly use fallback for 1s as most APIs don't support 1s OHLC history
+  if (timeframeId === '1s') {
+    const latestPrice = await fetchLatestTick(symbol);
+    return generateHistoryFallback(symbol, timeframeId, count, latestPrice ?? undefined);
+  }
+
   const pair = SYMBOL_MAP[symbol.id] || symbol.id.toLowerCase();
   const step = INTERVAL_MAP[timeframeId] || '60';
 
@@ -142,7 +148,6 @@ export const fetchHistory = async (
     })).sort((a: Candle, b: Candle) => a.time - b.time);
   } catch (error) {
     console.warn(`Market API Down, using Deterministic Fallback for ${symbol.id}:`, error);
-    // Try to get at least one real price to anchor the fallback
     const latestPrice = await fetchLatestTick(symbol);
     return generateHistoryFallback(symbol, timeframeId, count, latestPrice ?? undefined);
   }
@@ -154,13 +159,12 @@ const generateHistoryFallback = (
   count: number = 200,
   targetPrice?: number
 ): Candle[] => {
-  const timeframe = TIMEFRAMES.find(t => t.id === timeframeId) || TIMEFRAMES[0];
+  const timeframe = TIMEFRAMES.find(t => t.id === timeframeId) || TIMEFRAMES[1];
   const now = Date.now();
 
   const alignedNow = Math.floor(now / timeframe.ms) * timeframe.ms;
   const startTime = alignedNow - (count * timeframe.ms);
 
-  // Seed based purely on symbol ID
   let baseSeed = 0;
   for (let i = 0; i < symbol.id.length; i++) baseSeed += symbol.id.charCodeAt(i);
 
@@ -169,54 +173,55 @@ const generateHistoryFallback = (
     return x - Math.floor(x);
   };
 
-  // We walk in 1-minute steps since the start time.
-  // This ensures that for a given (t), the price is the same across all timeframes.
   const volMult = symbol.type === 'CRYPTO' ? 1.5 : 0.5;
+  const stepMs = timeframeId === '1s' ? 1000 : 60000;
 
-  // 1. Pre-calculate the entire 1-minute resolution path for the required period
-  const minutePath = new Map<number, number>();
+  // 1. Generate path
+  const path = new Map<number, number>();
   let p = 1.0;
+  const walkStart = Math.floor(startTime / 3600000) * 3600000;
 
-  // To make it continuous and consistent, we start "walking" from a fixed point (startTime)
-  // or a day-boundary. Let's use startTime but the price evolution itself is seeded by timestamp.
-  // Actually, to be truly consistent across timeframes, we should walk from a fixed point common to all.
-  const masterWalkStart = Math.floor(startTime / 3600000) * 3600000; // Align to hour
-
-  for (let t = masterWalkStart; t <= alignedNow; t += 60000) {
-    const stepSeed = baseSeed + (t / 60000);
+  for (let t = walkStart; t <= alignedNow; t += stepMs) {
+    const stepSeed = baseSeed + (t / stepMs);
     const r1 = getRand(stepSeed);
-    p += (r1 - 0.5) * symbol.volatility * p * 0.003 * volMult;
-    minutePath.set(t, p);
+    const driftScale = timeframeId === '1s' ? 0.001 : 0.003; // Increased 1s volatility
+    p += (r1 - 0.5) * symbol.volatility * p * driftScale * volMult;
+    path.set(t, p);
   }
 
-  // 2. Adjust for targetPrice so the last candle matches real price (if provided)
-  const endRelPrice = minutePath.get(alignedNow) || p;
+  const endRelPrice = path.get(alignedNow) || p;
   const absoluteBase = (targetPrice ?? symbol.basePrice) / endRelPrice;
 
   const data: Candle[] = [];
 
-  // 3. Construct candles for the requested timeframe by aggregating 1m steps
   for (let t = startTime; t <= alignedNow; t += timeframe.ms) {
     const pricesInBar: number[] = [];
 
-    for (let mt = t; mt < t + timeframe.ms; mt += 60000) {
-      const mp = minutePath.get(mt);
-      if (mp !== undefined) {
-        pricesInBar.push(mp * absoluteBase);
-      }
+    // Aggregate from the path
+    for (let mt = t; mt < t + timeframe.ms; mt += stepMs) {
+      const mp = path.get(mt);
+      if (mp !== undefined) pricesInBar.push(mp * absoluteBase);
     }
 
     if (pricesInBar.length > 0) {
-      const open = pricesInBar[0];
-      const close = pricesInBar[pricesInBar.length - 1];
-      const high = Math.max(...pricesInBar);
-      const low = Math.min(...pricesInBar);
+      let open = pricesInBar[0];
+      let close = pricesInBar[pricesInBar.length - 1];
+      let high = Math.max(...pricesInBar);
+      let low = Math.min(...pricesInBar);
 
-      const volSeed = baseSeed + (t / 60000);
+      // FOR 1S CANDLES: If they are flat, fake a tiny spread for visual wicks
+      if (timeframeId === '1s' && pricesInBar.length === 1) {
+        const seed = baseSeed + (t / 1000);
+        const spread = open * symbol.volatility * 0.0002;
+        high = open + getRand(seed * 1.1) * spread;
+        low = open - getRand(seed * 1.2) * spread;
+        close = open + (getRand(seed * 1.3) - 0.5) * spread;
+      }
+
       data.push({
         time: t,
         open, high, low, close,
-        volume: Math.floor(1000 + getRand(volSeed) * 5000)
+        volume: Math.floor(1000 + getRand(baseSeed + t / 1000) * 5000)
       });
     }
   }
@@ -226,7 +231,7 @@ const generateHistoryFallback = (
 
 // --- Advanced Signal Logic ---
 
-export const calculateSignals = (data: Candle[], config: AlgoConfig): Signal[] => {
+export const calculateSignals = (data: Candle[], config: AlgoConfig, timeframeId?: string): Signal[] => {
   if (data.length < 50) return [];
 
   const signals: Signal[] = [];
@@ -234,8 +239,9 @@ export const calculateSignals = (data: Candle[], config: AlgoConfig): Signal[] =
   // 1. Sensitivity Logic
   const sensitivity = Math.max(1, Math.min(10, config.sensitivity));
 
-  // Cooldown
-  const cooldownCandles = Math.max(2, Math.round(18 - (sensitivity * 1.6)));
+  // Cooldown - INCREASED for 1s to prevent overlapping markers
+  let cooldownCandles = Math.max(2, Math.round(18 - (sensitivity * 1.6)));
+  if (timeframeId === '1s') cooldownCandles *= 4; // 4x cooldown for 1s signals
 
   // Momentum Lookback
   const momentumLookback = Math.max(5, Math.round(22 - (sensitivity * 1.7)));
@@ -382,40 +388,44 @@ export const fetchLatestTick = async (symbol: SymbolDef): Promise<number | null>
   }
 };
 
-// Updated simulateTick to accept an optional real price
+// Updated simulateTick to accept an optional real price and add micro-jitter
 export const updateCandleWithTick = (currentCandle: Candle, symbolVolatility: number, realPrice?: number): Candle => {
+  // Base volatility for micro-movements
+  const baseTickVol = currentCandle.close * symbolVolatility * 0.002;
+
+  // Simulated drift to keep it moving even if realPrice is stagnant or missing
+  const drift = (Math.random() - 0.5) * baseTickVol;
+
   if (realPrice !== undefined) {
+    // If we have a real price, we "pull" the candle towards it but keep micro-jitter for visual life
+    // This prevents the chart from looking "frozen" if the API ticker is slow to update.
+    const alpha = 0.3; // Smoothing factor
+    const targetClose = (realPrice * (1 - alpha)) + (currentCandle.close * alpha) + (drift * 0.2);
+
     return {
       ...currentCandle,
-      close: realPrice,
-      high: Math.max(currentCandle.high, realPrice),
-      low: Math.min(currentCandle.low, realPrice),
-      volume: currentCandle.volume + Math.floor(Math.random() * 10)
+      close: targetClose,
+      high: Math.max(currentCandle.high, targetClose, realPrice),
+      low: Math.min(currentCandle.low, targetClose, realPrice),
+      volume: currentCandle.volume + Math.floor(Math.random() * 5)
     };
   }
 
-  // Fallback: Simulation if real price not provided
-  const baseTickVol = currentCandle.close * symbolVolatility * 0.005;
-  const currentRange = currentCandle.high - currentCandle.low;
-  const effectiveVol = Math.max(currentRange * 0.15, baseTickVol);
+  // Fallback: Full simulation
+  const move = ((Math.random() - 0.5) * baseTickVol * 2) + (drift * 0.5);
+  let newClose = currentCandle.close + move;
 
-  let bias = 0;
-  if (Math.abs(currentCandle.close - currentCandle.open) < baseTickVol * 0.1) {
-    bias = Math.random() > 0.5 ? baseTickVol * 0.2 : -baseTickVol * 0.2;
+  // Prevent excessive drift from initial open
+  const maxDev = currentCandle.open * 0.02;
+  if (Math.abs(newClose - currentCandle.open) > maxDev) {
+    newClose = currentCandle.open + (Math.sign(newClose - currentCandle.open) * maxDev);
   }
-
-  const move = ((Math.random() - 0.5) * effectiveVol) + bias;
-  const drift = (Math.random() - 0.5) * (baseTickVol * 0.5);
-
-  let newClose = currentCandle.close + move + drift;
-  const newHigh = Math.max(currentCandle.high, newClose, currentCandle.open);
-  const newLow = Math.min(currentCandle.low, newClose, currentCandle.open);
 
   return {
     ...currentCandle,
     close: newClose,
-    high: newHigh,
-    low: newLow,
-    volume: currentCandle.volume + Math.floor(Math.random() * 25)
+    high: Math.max(currentCandle.high, newClose),
+    low: Math.min(currentCandle.low, newClose),
+    volume: currentCandle.volume + Math.floor(Math.random() * 15)
   };
 };

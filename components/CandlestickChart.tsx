@@ -24,6 +24,7 @@ const CandlestickChart: React.FC<Props> = ({ data, signals, config, symbolId, ti
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const areaSeriesRef = useRef<ISeriesApi<"Area"> | null>(null);
 
   // Track the current context loaded into the chart to preventing unnecessary full resets
   // Context = Symbol + Timeframe
@@ -61,11 +62,12 @@ const CandlestickChart: React.FC<Props> = ({ data, signals, config, symbolId, ti
       },
       rightPriceScale: {
         borderColor: '#2f303b',
+        autoScale: true,
       },
       timeScale: {
         borderColor: '#2f303b',
         timeVisible: true,
-        secondsVisible: false,
+        secondsVisible: true,
       },
     });
 
@@ -77,8 +79,16 @@ const CandlestickChart: React.FC<Props> = ({ data, signals, config, symbolId, ti
       wickDownColor: CHART_COLORS.candleDown,
     });
 
+    const areaSeries = chart.addAreaSeries({
+      lineColor: '#00d68f',
+      topColor: 'rgba(0, 214, 143, 0.4)',
+      bottomColor: 'rgba(0, 214, 143, 0.0)',
+      lineWidth: 2,
+    });
+
     chartRef.current = chart;
     seriesRef.current = candlestickSeries;
+    areaSeriesRef.current = areaSeries;
 
     const handleResize = () => {
       if (chartContainerRef.current) {
@@ -93,23 +103,31 @@ const CandlestickChart: React.FC<Props> = ({ data, signals, config, symbolId, ti
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
+      areaSeriesRef.current = null;
       loadedContextId.current = null; // Reset context on unmount
     };
   }, []);
 
   // --- Unified Data Effect ---
   useEffect(() => {
-    if (!seriesRef.current || !chartRef.current || data.length === 0) return;
+    if (!seriesRef.current || !areaSeriesRef.current || !chartRef.current || data.length === 0) return;
 
+    const is1s = timeframeId === '1s';
     const currentContextId = `${symbolId}-${timeframeId}`;
     const isContextSwitch = loadedContextId.current !== currentContextId;
+
+    // Toggle visibility based on timeframe
+    seriesRef.current.applyOptions({ visible: !is1s });
+    areaSeriesRef.current.applyOptions({ visible: is1s });
 
     // Determine precision from the latest price
     const lastPrice = data[data.length - 1].close;
     const precision = getPrecision(lastPrice);
     const minMove = 1 / Math.pow(10, precision);
 
-    seriesRef.current.applyOptions({
+    const activeSeries = is1s ? areaSeriesRef.current : seriesRef.current;
+
+    activeSeries.applyOptions({
       priceFormat: {
         type: 'price',
         precision: precision,
@@ -119,42 +137,46 @@ const CandlestickChart: React.FC<Props> = ({ data, signals, config, symbolId, ti
 
     if (isContextSwitch) {
       // --- Full Data Set Reset ---
-      // This runs only when Symbol or Timeframe changes, or on first load.
-      const formattedData = data.map(d => ({
-        time: Math.floor(d.time / 1000) as UTCTimestamp,
-        open: d.open,
-        high: d.high,
-        low: d.low,
-        close: d.close,
-      }));
+      if (is1s) {
+        areaSeriesRef.current.setData(data.map(d => ({
+          time: Math.floor(d.time / 1000) as UTCTimestamp,
+          value: d.close,
+        })));
+      } else {
+        seriesRef.current.setData(data.map(d => ({
+          time: Math.floor(d.time / 1000) as UTCTimestamp,
+          open: d.open,
+          high: d.high,
+          low: d.low,
+          close: d.close,
+        })));
+      }
 
-      seriesRef.current.setData(formattedData);
-
-      // Only fit content on a full reset, so we don't disturb user zoom during live updates
       chartRef.current.timeScale().fitContent();
-
       loadedContextId.current = currentContextId;
-
-      // Clear lines on reset
       tpLineRef.current = null;
       slLineRef.current = null;
+      entryLineRef.current = null;
     } else {
       // --- Live Update (Tick) ---
-      // This runs for every 100ms tick. 
-      // We ONLY update the last candle to avoid expensive full redraws.
-      // Even if 'data' array shifts (slices old data), we just keep appending/updating the head.
       const lastCandle = data[data.length - 1];
-
       try {
-        seriesRef.current.update({
-          time: Math.floor(lastCandle.time / 1000) as UTCTimestamp,
-          open: lastCandle.open,
-          high: lastCandle.high,
-          low: lastCandle.low,
-          close: lastCandle.close,
-        });
+        if (is1s) {
+          areaSeriesRef.current.update({
+            time: Math.floor(lastCandle.time / 1000) as UTCTimestamp,
+            value: lastCandle.close,
+          });
+        } else {
+          seriesRef.current.update({
+            time: Math.floor(lastCandle.time / 1000) as UTCTimestamp,
+            open: lastCandle.open,
+            high: lastCandle.high,
+            low: lastCandle.low,
+            close: lastCandle.close,
+          });
+        }
       } catch (e) {
-        console.warn("Chart update failed (likely timing mismatch):", e);
+        console.warn("Chart update failed:", e);
       }
     }
   }, [data, symbolId, timeframeId]);
