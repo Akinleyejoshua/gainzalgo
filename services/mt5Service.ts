@@ -26,7 +26,7 @@ class MT5Service {
 
             const fetchOptions: RequestInit = {
                 method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json',"Access-Control-Allow-Origin": "*" },
                 signal: AbortSignal.timeout(10000)
             };
 
@@ -110,7 +110,7 @@ class MT5Service {
         try {
             const response = await fetch(`${this.config?.bridgeUrl}/order`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', "Access-Control-Allow-Origin": "http://localhost:8000" },
+                headers: { 'Content-Type': 'application/json', "Access-Control-Allow-Origin": "*" },
                 body: JSON.stringify(params)
             });
             const data = await response.json();
