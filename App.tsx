@@ -239,7 +239,7 @@ const App: React.FC = () => {
             setAiSignals(prev => {
               // Strictly keep only the most recent AI signal for the current candle context
               // This reduces noise and matches the "latest candle only" request
-              const newSignal = result.signals[result.signals.length - 1];
+              const newSignal = result.signals[0];
               const filtered = prev.filter(s => s.candleTime !== newSignal.candleTime);
               return [...filtered, newSignal].slice(-20);
             });

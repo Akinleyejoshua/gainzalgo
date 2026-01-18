@@ -49,6 +49,7 @@ export const analyzeWithGemini = async (
 
   // --- Data Preparation (Common) ---
   const dataWindow = 30;
+  const latestCandleTime = candles[candles.length - 1]?.time || Date.now();
   const recentCandles = candles.slice(-dataWindow).map(c => ({
     t: new Date(c.time).toISOString(),
     o: c.open.toFixed(4),
@@ -127,7 +128,7 @@ export const analyzeWithGemini = async (
 
       return {
         analysis: parsed.analysis || "Analysis completed.",
-        signals: formatAISignals(parsed.aiSignals),
+        signals: formatAISignals(parsed.aiSignals, latestCandleTime),
         provider: "Meta AI (Llama 3)"
       };
     } catch (error: any) {
@@ -159,7 +160,7 @@ export const analyzeWithGemini = async (
 
       return {
         analysis: parsed.analysis || "Analysis completed.",
-        signals: formatAISignals(parsed.aiSignals),
+        signals: formatAISignals(parsed.aiSignals, latestCandleTime),
         provider: "Groq"
       };
     } catch (error: any) {
@@ -184,7 +185,7 @@ export const analyzeWithGemini = async (
 
       return {
         analysis: parsed.analysis || "Analysis completed.",
-        signals: formatAISignals(parsed.aiSignals),
+        signals: formatAISignals(parsed.aiSignals, latestCandleTime),
         provider: "Google Gemini"
       };
     } catch (error: any) {
@@ -204,10 +205,10 @@ export const analyzeWithGemini = async (
   };
 };
 
-const formatAISignals = (aiSignals: any[]): Signal[] => {
+const formatAISignals = (aiSignals: any[], latestCandleTime: number): Signal[] => {
   return (aiSignals || []).map((s: any) => ({
-    id: `ai-sig-${s.candleTime}-${Math.random().toString(36).substr(2, 5)}`,
-    candleTime: s.candleTime,
+    id: `ai-sig-${latestCandleTime}-${Math.random().toString(36).substr(2, 5)}`,
+    candleTime: latestCandleTime,
     type: s.type,
     entryPrice: s.entryPrice,
     stopLoss: s.stopLoss,
