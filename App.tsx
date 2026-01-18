@@ -8,6 +8,10 @@ import { SymbolDef, AlgoConfig, Candle, Signal } from './types';
 import { SUPPORTED_SYMBOLS, TIMEFRAMES } from './constants';
 import { fetchHistory, updateCandleWithTick, fetchLatestTick, calculateSignals } from './services/marketService';
 import { analyzeWithGemini } from './services/aiService';
+import { mt5Service } from './services/mt5Service';
+import { MT5Account, TradeSettings } from './types';
+import { Toaster } from 'react-hot-toast';
+import { notify } from './services/notificationService';
 
 const DEFAULT_CONFIG: AlgoConfig = {
   sensitivity: 5,
@@ -21,7 +25,27 @@ const DEFAULT_CONFIG: AlgoConfig = {
   useVolumeFilter: false,
   enableAISignals: false,
   aiModeEnabled: false,
-  aiLookback: 100 // Default to last 100 candles for efficient AI context
+  aiLookback: 100,
+  tradingEnabled: false
+};
+
+const DEFAULT_ACCOUNT: MT5Account = {
+  login: '',
+  server: '',
+  bridgeUrl: 'http://localhost:8000',
+  isConnected: false,
+  isSimulator: false,
+  balance: 0,
+  equity: 0,
+  currency: 'USD'
+};
+
+const DEFAULT_TRADE_SETTINGS: TradeSettings = {
+  lotSize: 0.1,
+  stopLossPips: 200,
+  takeProfitPips: 400,
+  autoTradeEnabled: false,
+  maxTradesPerDay: 5
 };
 
 const App: React.FC = () => {
@@ -56,6 +80,19 @@ const App: React.FC = () => {
   const lastScannedCandleTime = useRef<number>(0);
   const lastAIScanTimestamp = useRef<number>(0); // Cooldown for API requests
 
+  // Trading State
+  const [mt5Account, setMt5Account] = useState<MT5Account>(() => {
+    const saved = localStorage.getItem('gainzalgo_mt5_account');
+    return saved ? JSON.parse(saved) : DEFAULT_ACCOUNT;
+  });
+
+  const [tradeSettings, setTradeSettings] = useState<TradeSettings>(() => {
+    const saved = localStorage.getItem('gainzalgo_trade_settings');
+    return saved ? JSON.parse(saved) : DEFAULT_TRADE_SETTINGS;
+  });
+
+  const executedSignalIds = useRef<Set<string>>(new Set());
+
   // Refs for interval management
   const tickIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -77,6 +114,15 @@ const App: React.FC = () => {
     }
   }, [config]);
 
+  useEffect(() => {
+    localStorage.setItem('gainzalgo_mt5_account', JSON.stringify(mt5Account));
+    mt5Service.updateConfig(mt5Account);
+  }, [mt5Account]);
+
+  useEffect(() => {
+    localStorage.setItem('gainzalgo_trade_settings', JSON.stringify(tradeSettings));
+  }, [tradeSettings]);
+
   // --- Logic ---
 
   // Handle Symbol Change Wrapper to prevent stale data render
@@ -84,6 +130,7 @@ const App: React.FC = () => {
     if (newSymbol.id === symbol.id) return;
     setData([]); // Clear data immediately to unmount chart and prevent stale data issues
     setAiSignals([]); // Clear AI signals on symbol change
+    executedSignalIds.current.clear(); // Clear execution history for new symbol
     setSymbol(newSymbol);
   };
 
@@ -127,6 +174,42 @@ const App: React.FC = () => {
       }
     }
   }, [config, data, aiSignals]);
+
+  // --- Automated Trading Execution ---
+  useEffect(() => {
+    if (tradeSettings.autoTradeEnabled && mt5Account.isConnected && signals.length > 0) {
+      const latestSignal = signals[signals.length - 1];
+
+      // Check if this signal is fresh (within last 2 candles) and not already executed
+      const lastCandleTime = data[data.length - 1]?.time || 0;
+      const currentTfRecord = TIMEFRAMES.find(tf => tf.id === timeframe);
+      const currentTfMs = currentTfRecord?.ms || 60000;
+      const isFresh = lastCandleTime - latestSignal.candleTime <= currentTfMs * 2;
+
+      if (isFresh && !executedSignalIds.current.has(latestSignal.id)) {
+        console.log(`[AutoTrade] Triggering order for signal: ${latestSignal.id} on ${symbol.id}`);
+        executedSignalIds.current.add(latestSignal.id);
+
+        const isLong = latestSignal.type === 'LONG';
+
+        mt5Service.placeOrder({
+          symbol: symbol.id,
+          type: isLong ? 'BUY' : 'SELL',
+          volume: tradeSettings.lotSize,
+          sl: latestSignal.stopLoss,
+          tp: latestSignal.takeProfit
+        }).then(res => {
+          if (res.success) {
+            notify.trade(isLong ? 'BUY' : 'SELL', symbol.id, tradeSettings.lotSize);
+          } else {
+            notify.error(`Auto-trade failed: ${res.error}`);
+          }
+        });
+      }
+    } else if (tradeSettings.autoTradeEnabled && !mt5Account.isConnected && signals.length > 0) {
+      // Optional: Log once or show a hint that auto-trade is waiting for connection
+    }
+  }, [signals, tradeSettings.autoTradeEnabled, mt5Account.isConnected, symbol, data, timeframe]);
 
   // --- Real-time AI Signal Update ---
   useEffect(() => {
@@ -254,6 +337,35 @@ const App: React.FC = () => {
     }
   };
 
+  const handleManualTrade = async (type: 'BUY' | 'SELL') => {
+    if (!mt5Account.isConnected) {
+      notify.error("MT5 not connected. Please connect in the Trading panel.");
+      return;
+    }
+
+    const lastPrice = data[data.length - 1]?.close || 0;
+    const isLong = type === 'BUY';
+    const pipValue = symbol.type === 'FOREX' ? 0.0001 : (symbol.id.includes('JPY') ? 0.01 : 1.0);
+
+    // Calculate SL/TP based on settings
+    const sl = isLong ? lastPrice - (tradeSettings.stopLossPips * pipValue) : lastPrice + (tradeSettings.stopLossPips * pipValue);
+    const tp = isLong ? lastPrice + (tradeSettings.takeProfitPips * pipValue) : lastPrice - (tradeSettings.takeProfitPips * pipValue);
+
+    const result = await mt5Service.placeOrder({
+      symbol: symbol.id,
+      type,
+      volume: tradeSettings.lotSize,
+      sl,
+      tp
+    });
+
+    if (result.success) {
+      notify.trade(type, symbol.id, tradeSettings.lotSize);
+    } else {
+      notify.error(`Order failed: ${result.error}`);
+    }
+  };
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // --- Render ---
@@ -282,6 +394,11 @@ const App: React.FC = () => {
           onConfigChange={setConfig}
           onAIAnalysis={handleAIAnalysis}
           isAnalyzing={isAnalyzing}
+          mt5Account={mt5Account}
+          tradeSettings={tradeSettings}
+          onAccountUpdate={(acc) => setMt5Account(prev => ({ ...prev, ...acc }))}
+          onSettingsUpdate={setTradeSettings}
+          onTradeAction={handleManualTrade}
         />
 
         {/* Mobile Close Button */}
@@ -316,6 +433,30 @@ const App: React.FC = () => {
           currentCandle={data.length > 0 ? data[data.length - 1] : { time: 0, open: 0, close: 0, high: 0, low: 0, volume: 0 }}
         />
 
+        {/* Auto-Trading Status Banner */}
+        {tradeSettings.autoTradeEnabled && (
+          <div className={`mx-2 mt-2 px-4 py-2 rounded-xl border flex items-center justify-between animate-in slide-in-from-top duration-500 ${mt5Account.isConnected
+            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
+            : 'bg-amber-500/10 border-amber-500/20 text-amber-500'}`}>
+            <div className="flex items-center gap-3">
+              <div className={`w-2 h-2 rounded-full ${mt5Account.isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+              <span className="text-[10px] font-black uppercase tracking-widest">
+                {mt5Account.isConnected ? 'GainzAlgo Auto-Trading System Live' : 'Auto-Trading Waiting for MT5 Connection'}
+              </span>
+            </div>
+            <div className="flex items-center gap-4 text-[9px] font-bold uppercase opacity-80">
+              <span className="hidden sm:inline">Lot: {tradeSettings.lotSize}</span>
+              <span className="hidden sm:inline">Asset: {symbol.id}</span>
+              <button
+                onClick={() => setTradeSettings(prev => ({ ...prev, autoTradeEnabled: false }))}
+                className="px-2 py-1 bg-white/10 hover:bg-white/20 rounded-md transition-all"
+              >
+                Deactivate
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex-1 relative p-2 bg-[#0d0e12] flex items-center justify-center">
           {data.length > 0 ? (
             <CandlestickChart
@@ -342,6 +483,7 @@ const App: React.FC = () => {
         signals={signals}
         provider={activeProvider}
       />
+      <Toaster position="top-right" />
     </div>
   );
 };

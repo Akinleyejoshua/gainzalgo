@@ -1,7 +1,7 @@
-import React from 'react';
-import { AssetType, AlgoConfig, SymbolDef, Timeframe, StrategyType } from '../types';
+import { AssetType, AlgoConfig, SymbolDef, Timeframe, StrategyType, MT5Account, TradeSettings } from '../types';
 import { SUPPORTED_SYMBOLS, TIMEFRAMES } from '../constants';
 import { Activity, Sliders, ChevronDown, BarChart2, ShieldAlert, Cpu, Bot, Zap } from 'lucide-react';
+import TradePanel from './TradePanel';
 
 interface Props {
   currentSymbol: SymbolDef;
@@ -12,6 +12,11 @@ interface Props {
   onConfigChange: (c: AlgoConfig) => void;
   onAIAnalysis: () => void;
   isAnalyzing: boolean;
+  mt5Account: MT5Account;
+  tradeSettings: TradeSettings;
+  onAccountUpdate: (acc: Partial<MT5Account>) => void;
+  onSettingsUpdate: (settings: TradeSettings) => void;
+  onTradeAction: (type: 'BUY' | 'SELL') => void;
 }
 
 const ControlPanel: React.FC<Props> = ({
@@ -22,7 +27,12 @@ const ControlPanel: React.FC<Props> = ({
   onTimeframeChange,
   onConfigChange,
   onAIAnalysis,
-  isAnalyzing
+  isAnalyzing,
+  mt5Account,
+  tradeSettings,
+  onAccountUpdate,
+  onSettingsUpdate,
+  onTradeAction
 }) => {
   return (
     <div className="flex flex-col h-full bg-[#0d0e12] relative overflow-hidden">
@@ -41,6 +51,37 @@ const ControlPanel: React.FC<Props> = ({
           </div>
           <button className="lg:hidden p-2 text-gray-400">
             <Sliders size={18} />
+          </button>
+        </div>
+
+        {/* Super-Control Section (Master Switches) */}
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          <button
+            onClick={() => onSettingsUpdate({ ...tradeSettings, autoTradeEnabled: !tradeSettings.autoTradeEnabled })}
+            className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all ${tradeSettings.autoTradeEnabled
+              ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
+              : 'bg-[#14151a] border-[#1e1e24] text-gray-500 hover:border-gray-700'
+              }`}
+          >
+            <Zap size={18} className={tradeSettings.autoTradeEnabled ? "fill-emerald-500" : ""} />
+            <span className="text-[10px] font-black mt-1 uppercase tracking-tighter">Auto Trade</span>
+            <span className={`text-[8px] font-bold ${tradeSettings.autoTradeEnabled ? 'text-emerald-400' : 'text-gray-600'}`}>
+              {tradeSettings.autoTradeEnabled ? 'ACTIVE' : 'OFF'}
+            </span>
+          </button>
+
+          <button
+            onClick={() => onConfigChange({ ...config, aiModeEnabled: !config.aiModeEnabled })}
+            className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all ${config.aiModeEnabled
+              ? 'bg-indigo-500/10 border-indigo-500 text-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.2)]'
+              : 'bg-[#14151a] border-[#1e1e24] text-gray-500 hover:border-gray-700'
+              }`}
+          >
+            <Bot size={18} className={config.aiModeEnabled ? "fill-indigo-500" : ""} />
+            <span className="text-[10px] font-black mt-1 uppercase tracking-tighter">AI Analysis</span>
+            <span className={`text-[8px] font-bold ${config.aiModeEnabled ? 'text-indigo-400' : 'text-gray-600'}`}>
+              {config.aiModeEnabled ? 'ACTIVE' : 'OFF'}
+            </span>
           </button>
         </div>
 
@@ -253,6 +294,16 @@ const ControlPanel: React.FC<Props> = ({
             </div>
           )}
         </div>
+
+        {/* Trading Section */}
+        <TradePanel
+          symbol={currentSymbol}
+          account={mt5Account}
+          settings={tradeSettings}
+          onAccountUpdate={onAccountUpdate}
+          onSettingsUpdate={onSettingsUpdate}
+          onTradeAction={onTradeAction}
+        />
       </div>
     </div>
   );

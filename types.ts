@@ -16,6 +16,50 @@ export type Timeframe = '1m' | '5m' | '15m' | '1h' | '4h' | '24h';
 
 export type StrategyType = 'TREND' | 'REVERSAL' | 'MOMENTUM';
 
+export interface MT5Account {
+  login: string;
+  server: string;
+  password?: string;
+  bridgeUrl: string;
+  isConnected: boolean;
+  isSimulator: boolean;
+  balance: number;
+  equity: number;
+  currency: string;
+}
+
+export interface TradeSettings {
+  lotSize: number;
+  stopLossPips: number;
+  takeProfitPips: number;
+  autoTradeEnabled: boolean;
+  maxTradesPerDay: number;
+}
+
+export interface Position {
+  ticket: number;
+  symbol: string;
+  type: 'BUY' | 'SELL';
+  volume: number;
+  openPrice: number;
+  currentPrice: number;
+  sl: number;
+  tp: number;
+  profit: number;
+  time: number;
+}
+
+export interface TradeHistory {
+  ticket: number;
+  symbol: string;
+  type: 'BUY' | 'SELL';
+  volume: number;
+  openPrice: number;
+  closePrice: number;
+  profit: number;
+  closeTime: number;
+}
+
 export interface AlgoConfig {
   sensitivity: number; // 1-10
   riskReward: number; // e.g. 2.0
@@ -31,6 +75,9 @@ export interface AlgoConfig {
   enableAISignals: boolean;
   aiModeEnabled: boolean;
   aiLookback: number; // New: Number of candles to send for AI analysis
+
+  // Trading integration
+  tradingEnabled: boolean;
 }
 
 export interface Candle {
