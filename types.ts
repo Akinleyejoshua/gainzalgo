@@ -75,6 +75,10 @@ export interface AlgoConfig {
   enableAISignals: boolean;
   aiModeEnabled: boolean;
   aiLookback: number; // New: Number of candles to send for AI analysis
+  useAdxFilter: boolean;
+  adxThreshold: number;
+  useMacdFilter: boolean;
+  useEmaTrendFilter: boolean;
 
   // Trading integration
   tradingEnabled: boolean;

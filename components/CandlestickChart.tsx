@@ -181,13 +181,28 @@ const CandlestickChart: React.FC<Props> = ({ data, signals, config, symbolId, ti
     }
   }, [data, symbolId, timeframeId]);
 
+  // Track the last signal ID to prevent unnecessary line flickering
+  const lastSignalIdRef = useRef<string | null>(null);
+
+  // Track state to determine if we need to redraw lines (Refreshes on Toggle OR Value Update)
+  const lastRenderedStateRef = useRef<{
+    showTP: boolean;
+    showSL: boolean;
+    tpValue: number | null;
+    slValue: number | null;
+  }>({
+    showTP: config.showTP,
+    showSL: config.showSL,
+    tpValue: null,
+    slValue: null
+  });
+
   // --- Signals & Markers Effect ---
   useEffect(() => {
     if (!seriesRef.current || !chartRef.current) return;
 
     // Update Markers
     // We update markers every render to ensure they match current signals state.
-    // This is generally lightweight enough.
     const markers: SeriesMarker<UTCTimestamp>[] = signals.map(sig => {
       const isLong = sig.type === 'LONG';
       const isAI = sig.isAI;
@@ -208,63 +223,80 @@ const CandlestickChart: React.FC<Props> = ({ data, signals, config, symbolId, ti
     seriesRef.current.setMarkers(markers);
 
     // --- Active Signal TP/SL Lines ---
-    // Efficiently manage price lines
-
-    // 1. Remove old lines if they exist
-    try {
-      if (tpLineRef.current) {
-        seriesRef.current.removePriceLine(tpLineRef.current);
-        tpLineRef.current = null;
-      }
-      if (slLineRef.current) {
-        seriesRef.current.removePriceLine(slLineRef.current);
-        slLineRef.current = null;
-      }
-      if (entryLineRef.current) { // Remove entry line
-        seriesRef.current.removePriceLine(entryLineRef.current);
-        entryLineRef.current = null;
-      }
-    } catch (e) {
-      // Ignore removal errors if series is fresh
-    }
-
-    // 2. Add new lines for latest signal
     const latestSignal = signals[signals.length - 1];
 
-    if (latestSignal && latestSignal.status === 'ACTIVE') {
-      const isAI = latestSignal.isAI;
+    // Check if we need to update lines
+    // Update if:
+    // 1. No latest signal (clear lines)
+    // 2. Latest signal ID is different from cached
+    // 3. Latest signal status changed (e.g. cancelled/closed - though typically we only chart active)
 
-      // Entry Line
-      entryLineRef.current = seriesRef.current.createPriceLine({
-        price: latestSignal.entryPrice,
-        color: isAI ? CHART_COLORS.aiEntryLine : CHART_COLORS.entryLine,
-        lineWidth: isAI ? 2 : 1,
-        lineStyle: LineStyle.Solid,
-        axisLabelVisible: true,
-        title: `${isAI ? '[AI] ' : ''}ENTRY`,
-      });
-
-      if (config.showTP) {
-        tpLineRef.current = seriesRef.current.createPriceLine({
-          price: latestSignal.takeProfit,
-          color: isAI ? CHART_COLORS.aiTpLine : CHART_COLORS.tpLine,
-          lineWidth: isAI ? 2 : 1,
-          lineStyle: LineStyle.Dotted,
-          axisLabelVisible: true,
-          title: `${isAI ? '[AI] ' : ''}TP`,
-        });
-      }
-      if (config.showSL) {
-        slLineRef.current = seriesRef.current.createPriceLine({
-          price: latestSignal.stopLoss,
-          color: isAI ? CHART_COLORS.aiSlLine : CHART_COLORS.slLine,
-          lineWidth: isAI ? 2 : 1,
-          lineStyle: LineStyle.Dotted,
-          axisLabelVisible: true,
-          title: `${isAI ? '[AI] ' : ''}SL`,
-        });
-      }
+    if (!latestSignal || latestSignal.status !== 'ACTIVE') {
+      if (tpLineRef.current) { seriesRef.current.removePriceLine(tpLineRef.current); tpLineRef.current = null; }
+      if (slLineRef.current) { seriesRef.current.removePriceLine(slLineRef.current); slLineRef.current = null; }
+      if (entryLineRef.current) { seriesRef.current.removePriceLine(entryLineRef.current); entryLineRef.current = null; }
+      lastSignalIdRef.current = null;
+      return;
     }
+
+    // Track config state to allow redrawing lines when toggles change OR values change
+    const stateChanged =
+      lastRenderedStateRef.current.showTP !== config.showTP ||
+      lastRenderedStateRef.current.showSL !== config.showSL ||
+      lastRenderedStateRef.current.tpValue !== latestSignal.takeProfit ||
+      lastRenderedStateRef.current.slValue !== latestSignal.stopLoss;
+
+    if (latestSignal.id === lastSignalIdRef.current && !stateChanged) {
+      return;
+    }
+
+    // --- Redraw Lines ---
+
+    // 1. Remove old lines
+    if (tpLineRef.current) { seriesRef.current.removePriceLine(tpLineRef.current); tpLineRef.current = null; }
+    if (slLineRef.current) { seriesRef.current.removePriceLine(slLineRef.current); slLineRef.current = null; }
+    if (entryLineRef.current) { seriesRef.current.removePriceLine(entryLineRef.current); entryLineRef.current = null; }
+
+    const isAI = latestSignal.isAI;
+
+    // Entry Line
+    entryLineRef.current = seriesRef.current.createPriceLine({
+      price: latestSignal.entryPrice,
+      color: isAI ? CHART_COLORS.aiEntryLine : CHART_COLORS.entryLine,
+      lineWidth: isAI ? 2 : 1,
+      lineStyle: LineStyle.Solid,
+      axisLabelVisible: true,
+      title: `${isAI ? '[AI] ' : ''}ENTRY`,
+    });
+
+    if (config.showTP) {
+      tpLineRef.current = seriesRef.current.createPriceLine({
+        price: latestSignal.takeProfit,
+        color: isAI ? CHART_COLORS.aiTpLine : CHART_COLORS.tpLine,
+        lineWidth: isAI ? 2 : 1,
+        lineStyle: LineStyle.Dotted,
+        axisLabelVisible: true,
+        title: `${isAI ? '[AI] ' : ''}TP`,
+      });
+    }
+    if (config.showSL) {
+      slLineRef.current = seriesRef.current.createPriceLine({
+        price: latestSignal.stopLoss,
+        color: isAI ? CHART_COLORS.aiSlLine : CHART_COLORS.slLine,
+        lineWidth: isAI ? 2 : 1,
+        lineStyle: LineStyle.Dotted,
+        axisLabelVisible: true,
+        title: `${isAI ? '[AI] ' : ''}SL`,
+      });
+    }
+
+    lastSignalIdRef.current = latestSignal.id;
+    lastRenderedStateRef.current = {
+      showTP: config.showTP,
+      showSL: config.showSL,
+      tpValue: latestSignal.takeProfit,
+      slValue: latestSignal.stopLoss
+    };
 
   }, [signals, config, data]); // Added data dependency to redraw lines if chart context refreshes
 

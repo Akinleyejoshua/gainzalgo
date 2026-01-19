@@ -110,6 +110,76 @@ function calculateATR(data: Candle[], period: number): number[] {
   return atr;
 }
 
+// Average Directional Index (ADX)
+function calculateADX(data: Candle[], period: number): number[] {
+  if (data.length < period * 2) return new Array(data.length).fill(0);
+
+  const tr: number[] = new Array(data.length).fill(0);
+  const plusDM: number[] = new Array(data.length).fill(0);
+  const minusDM: number[] = new Array(data.length).fill(0);
+
+  // 1. Calculate TR and DM
+  for (let i = 1; i < data.length; i++) {
+    const hl = data[i].high - data[i].low;
+    const hc = Math.abs(data[i].high - data[i - 1].close);
+    const lc = Math.abs(data[i].low - data[i - 1].close);
+    tr[i] = Math.max(hl, hc, lc);
+
+    const up = data[i].high - data[i - 1].high;
+    const down = data[i - 1].low - data[i].low;
+
+    if (up > down && up > 0) plusDM[i] = up;
+    if (down > up && down > 0) minusDM[i] = down;
+  }
+
+  // 2. Smooth TR, +DM, -DM (Wilder's Smoothing)
+  const smoothTR: number[] = new Array(data.length).fill(0);
+  const smoothPlusDM: number[] = new Array(data.length).fill(0);
+  const smoothMinusDM: number[] = new Array(data.length).fill(0);
+
+  // First value is simple sum
+  let sumTR = 0, sumPlus = 0, sumMinus = 0;
+  for (let i = 1; i <= period; i++) {
+    sumTR += tr[i];
+    sumPlus += plusDM[i];
+    sumMinus += minusDM[i];
+  }
+  smoothTR[period] = sumTR; // Note: Strictly it should be average or sum, Wilder uses Sum for first, then smooths
+  smoothPlusDM[period] = sumPlus;
+  smoothMinusDM[period] = sumMinus;
+
+  for (let i = period + 1; i < data.length; i++) {
+    smoothTR[i] = smoothTR[i - 1] - (smoothTR[i - 1] / period) + tr[i];
+    smoothPlusDM[i] = smoothPlusDM[i - 1] - (smoothPlusDM[i - 1] / period) + plusDM[i];
+    smoothMinusDM[i] = smoothMinusDM[i - 1] - (smoothMinusDM[i - 1] / period) + minusDM[i];
+  }
+
+  // 3. Calculate DX and ADX
+  const adx: number[] = new Array(data.length).fill(0);
+  const dx: number[] = new Array(data.length).fill(0);
+
+  for (let i = period; i < data.length; i++) {
+    const plusDI = (smoothPlusDM[i] / smoothTR[i]) * 100;
+    const minusDI = (smoothMinusDM[i] / smoothTR[i]) * 100;
+
+    if (plusDI + minusDI === 0) dx[i] = 0;
+    else dx[i] = (Math.abs(plusDI - minusDI) / (plusDI + minusDI)) * 100;
+  }
+
+  // ADX is smoothed DX
+  // First ADX is average of DX
+  let sumDX = 0;
+  for (let i = period; i < period * 2; i++) sumDX += dx[i];
+  adx[period * 2 - 1] = sumDX / period; // Approximation for first point
+
+  for (let i = period * 2; i < data.length; i++) {
+    adx[i] = ((adx[i - 1] * (period - 1)) + dx[i]) / period;
+  }
+
+  return adx;
+}
+
+
 // --- Realistic Data Generator (Market Cycles) ---
 
 // --- Real Market Data Fetcher ---
@@ -229,6 +299,127 @@ const generateHistoryFallback = (
   return data;
 };
 
+// Weighted Moving Average (WMA)
+function calculateWMA(data: number[], period: number): number[] {
+  const wma: number[] = new Array(data.length).fill(0);
+  const weights = (period * (period + 1)) / 2;
+
+  for (let i = period - 1; i < data.length; i++) {
+    let sum = 0;
+    for (let j = 0; j < period; j++) {
+      sum += data[i - (period - 1) + j] * (j + 1);
+    }
+    wma[i] = sum / weights;
+  }
+  return wma;
+}
+
+// Hull Moving Average (HMA) - Reducing Lag
+function calculateHMA(data: Candle[], period: number): number[] {
+  const closes = data.map(d => d.close);
+
+  // 1. WMA(n/2) * 2
+  const wmaHalfLength = Math.floor(period / 2);
+  const wmaHalf = calculateWMA(closes, wmaHalfLength).map(v => v * 2);
+
+  // 2. WMA(n)
+  const wmaFull = calculateWMA(closes, period);
+
+  // 3. Diff = WMA(n/2)*2 - WMA(n)
+  const diff = new Array(data.length).fill(0);
+  for (let i = 0; i < data.length; i++) {
+    diff[i] = wmaHalf[i] - wmaFull[i];
+  }
+
+  // 4. WMA(sqrt(n)) of Diff
+  const sqrtPeriod = Math.floor(Math.sqrt(period));
+  return calculateWMA(diff, sqrtPeriod);
+}
+
+// SuperTrend Indicator
+function calculateSuperTrend(data: Candle[], atr: number[], factor: number = 3, period: number = 10): { superTrend: number[], direction: number[] } {
+  const superTrend: number[] = new Array(data.length).fill(0);
+  const direction: number[] = new Array(data.length).fill(1); // 1 = Buy, -1 = Sell
+  const upperBand: number[] = new Array(data.length).fill(0);
+  const lowerBand: number[] = new Array(data.length).fill(0);
+
+  // Initialize
+  for (let i = 0; i < period; i++) {
+    superTrend[i] = data[i].close;
+  }
+
+  for (let i = period; i < data.length; i++) {
+    const hl2 = (data[i].high + data[i].low) / 2;
+    const currentAtr = atr[i];
+
+    // Calculate bands
+    let currUpper = hl2 + (factor * currentAtr);
+    let currLower = hl2 - (factor * currentAtr);
+
+    // Filter bands (don't move against the trend)
+    if (currUpper < upperBand[i - 1] || data[i - 1].close > upperBand[i - 1]) {
+      upperBand[i] = currUpper;
+    } else {
+      upperBand[i] = upperBand[i - 1];
+    }
+
+    if (currLower > lowerBand[i - 1] || data[i - 1].close < lowerBand[i - 1]) {
+      lowerBand[i] = currLower;
+    } else {
+      lowerBand[i] = lowerBand[i - 1];
+    }
+
+    // Determine Direction
+    let currDir = direction[i - 1];
+
+    // Flip to Uptrend
+    if (currDir === -1 && data[i].close > upperBand[i - 1]) {
+      currDir = 1;
+    }
+    // Flip to Downtrend
+    else if (currDir === 1 && data[i].close < lowerBand[i - 1]) {
+      currDir = -1;
+    }
+
+    direction[i] = currDir;
+    superTrend[i] = currDir === 1 ? lowerBand[i] : upperBand[i];
+  }
+
+  return { superTrend, direction };
+}
+
+// MACD (Moving Average Convergence Divergence)
+function calculateMACD(data: Candle[], fastPeriod: number = 12, slowPeriod: number = 26, signalPeriod: number = 9): { macdLine: number[], signalLine: number[], histogram: number[] } {
+  const fastEMA = calculateEMA(data, fastPeriod);
+  const slowEMA = calculateEMA(data, slowPeriod);
+
+  const macdLine: number[] = new Array(data.length).fill(0);
+  for (let i = 0; i < data.length; i++) {
+    macdLine[i] = fastEMA[i] - slowEMA[i];
+  }
+
+  // Signal line is EMA of MACD Line
+  const signalLine: number[] = new Array(data.length).fill(0);
+  const k = 2 / (signalPeriod + 1);
+
+  // Initial SMA for Signal Line
+  let sum = 0;
+  for (let i = 0; i < signalPeriod; i++) sum += macdLine[i];
+  signalLine[signalPeriod - 1] = sum / signalPeriod;
+
+  for (let i = signalPeriod; i < data.length; i++) {
+    signalLine[i] = (macdLine[i] * k) + (signalLine[i - 1] * (1 - k));
+  }
+
+  const histogram: number[] = new Array(data.length).fill(0);
+  for (let i = 0; i < data.length; i++) {
+    histogram[i] = macdLine[i] - signalLine[i];
+  }
+
+  return { macdLine, signalLine, histogram };
+}
+
+
 // --- Advanced Signal Logic ---
 
 export const calculateSignals = (data: Candle[], config: AlgoConfig, timeframeId?: string): Signal[] => {
@@ -256,30 +447,52 @@ export const calculateSignals = (data: Candle[], config: AlgoConfig, timeframeId
   const ema9 = calculateEMA(data, 9);
   const ema21 = calculateEMA(data, 21);
   const ema50 = calculateEMA(data, 50);
+  const ema200 = calculateEMA(data, 200); // For Major Trend Filter
   const rsiArray = calculateRSIArray(data, 14);
   const atrArray = calculateATR(data, 14);
+  const adxArray = calculateADX(data, 14);
+  const macdData = calculateMACD(data);
+
+  // GainZAlgo Specific Indicators (HMA + SuperTrend)
+  const hma9 = calculateHMA(data, 9);
+  const stData = calculateSuperTrend(data, atrArray, 3.0, 10);
 
   // Iterate through historical data
-  const startIndex = 50;
+  const startIndex = 200; // Need 200 for EMA200
 
   for (let i = startIndex; i < data.length; i++) {
     const current = data[i];
     const prev = data[i - 1];
     const atr = atrArray[i];
+    const adx = adxArray[i];
 
     let isSignal = false;
     let type: 'LONG' | 'SHORT' = 'LONG';
     let reason = '';
 
-    // --- Strategy 1: Trend Following (EMA Crossover) ---
+    // --- Strategy 1: Smart Trend (GainZAlgo Logic) ---
+    // Uses SuperTrend for Direction + HMA for fast entry timing
     if (config.strategy === 'TREND') {
-      const bullCross = prev.close < ema21[i - 1] && current.close > ema21[i] && ema9[i] > ema21[i];
-      const bearCross = prev.close > ema21[i - 1] && current.close < ema21[i] && ema9[i] < ema21[i];
+      const stDir = stData.direction[i];
+      const hma = hma9[i];
+      const prevHma = hma9[i - 1];
 
-      if (bullCross && current.close > ema50[i]) {
-        isSignal = true; type = 'LONG'; reason = 'EMA Trend Crossover';
-      } else if (bearCross && current.close < ema50[i]) {
-        isSignal = true; type = 'SHORT'; reason = 'EMA Trend Crossover';
+      // SuperTrend Flip (Major Trend Change)
+      const stFlipUp = stData.direction[i - 1] === -1 && stDir === 1;
+      const stFlipDown = stData.direction[i - 1] === 1 && stDir === -1;
+
+      // HMA Crossover (Pullback Entry in Trend)
+      const hmaCrossUp = prev.close < prevHma && current.close > hma && stDir === 1;
+      const hmaCrossDown = prev.close > prevHma && current.close < hma && stDir === -1;
+
+      if (stFlipUp) {
+        isSignal = true; type = 'LONG'; reason = 'SuperTrend Buy Flip';
+      } else if (stFlipDown) {
+        isSignal = true; type = 'SHORT'; reason = 'SuperTrend Sell Flip';
+      } else if (hmaCrossUp) {
+        isSignal = true; type = 'LONG'; reason = 'HMA Trend Entry';
+      } else if (hmaCrossDown) {
+        isSignal = true; type = 'SHORT'; reason = 'HMA Trend Entry';
       }
     }
 
@@ -319,6 +532,45 @@ export const calculateSignals = (data: Candle[], config: AlgoConfig, timeframeId
     // --- Signal Generation & Confidence Calculation ---
 
     if (isSignal) {
+      // 1. MACD Filter
+      if (config.useMacdFilter) {
+        const hist = macdData.histogram[i];
+        const histPrev = macdData.histogram[i - 1];
+        // Simple logic: Long requires Green Histogram (or trending up), Short requires Red
+        if (type === 'LONG' && hist < 0) {
+          isSignal = false;
+          continue;
+        }
+        if (type === 'SHORT' && hist > 0) {
+          isSignal = false;
+          continue;
+        }
+        reason += ' (MACD)';
+      }
+
+      // 2. EMA 200 Major Trend Filter
+      if (config.useEmaTrendFilter) {
+        const above200 = current.close > ema200[i];
+        if (type === 'LONG' && !above200) {
+          isSignal = false;
+          continue;
+        }
+        if (type === 'SHORT' && above200) {
+          isSignal = false;
+          continue;
+        }
+        reason += ' (Trend)';
+      }
+
+      // 3. ADX Filter Check
+      if (config.useAdxFilter && adx < config.adxThreshold) {
+        // Trend is too weak, ignore signal
+        isSignal = false;
+        continue;
+      } else if (config.useAdxFilter) {
+        reason += ` (ADX ${adx.toFixed(1)})`;
+      }
+
       // Confidence Logic (0-100)
       let confScore = 60; // Base confidence
 
@@ -346,6 +598,9 @@ export const calculateSignals = (data: Candle[], config: AlgoConfig, timeframeId
       const isTrendShort = current.close < ema50[i] && ema21[i] < ema50[i];
 
       if ((type === 'LONG' && isTrendLong) || (type === 'SHORT' && isTrendShort)) confScore += 10;
+
+      // 4. ADX Boost
+      if (adx > 30) confScore += 10;
 
       confScore = Math.max(30, Math.min(98, confScore));
 

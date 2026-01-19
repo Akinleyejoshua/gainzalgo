@@ -199,6 +199,52 @@ const ControlPanel: React.FC<Props> = ({
                   className="accent-yellow-500 w-4 h-4"
                 />
               </label>
+
+              <div className="pt-1">
+                <label className="flex items-center justify-between text-sm text-gray-300 cursor-pointer p-2 rounded hover:bg-[#1e1e24] transition">
+                  <span className="text-xs">ADX Trend Filter</span>
+                  <input
+                    type="checkbox"
+                    checked={config.useAdxFilter}
+                    onChange={e => onConfigChange({ ...config, useAdxFilter: e.target.checked })}
+                    className="accent-amber-500 w-4 h-4"
+                  />
+                </label>
+                {config.useAdxFilter && (
+                  <div className="px-2 pb-2 space-y-1 animate-in slide-in-from-top-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] text-gray-500 uppercase">Min Strength</span>
+                      <span className="text-[10px] font-mono text-amber-500">{config.adxThreshold}</span>
+                    </div>
+                    <input
+                      type="range" min="10" max="50" step="1"
+                      value={config.adxThreshold}
+                      onChange={e => onConfigChange({ ...config, adxThreshold: parseInt(e.target.value) })}
+                      className="w-full h-1 bg-[#1e1e24] rounded-lg appearance-none cursor-pointer accent-amber-500"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <label className="flex items-center justify-between text-sm text-gray-300 cursor-pointer p-2 rounded hover:bg-[#1e1e24] transition">
+                <span className="text-xs">MACD Momentum</span>
+                <input
+                  type="checkbox"
+                  checked={config.useMacdFilter}
+                  onChange={e => onConfigChange({ ...config, useMacdFilter: e.target.checked })}
+                  className="accent-blue-500 w-4 h-4"
+                />
+              </label>
+
+              <label className="flex items-center justify-between text-sm text-gray-300 cursor-pointer p-2 rounded hover:bg-[#1e1e24] transition">
+                <span className="text-xs">200 EMA Trend Bias</span>
+                <input
+                  type="checkbox"
+                  checked={config.useEmaTrendFilter}
+                  onChange={e => onConfigChange({ ...config, useEmaTrendFilter: e.target.checked })}
+                  className="accent-purple-500 w-4 h-4"
+                />
+              </label>
             </div>
 
             <div className="space-y-2 pt-2 border-t border-[#1e1e24]">

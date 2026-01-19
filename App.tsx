@@ -26,6 +26,10 @@ const DEFAULT_CONFIG: AlgoConfig = {
   enableAISignals: false,
   aiModeEnabled: false,
   aiLookback: 100,
+  useAdxFilter: true,
+  adxThreshold: 25,
+  useMacdFilter: false,
+  useEmaTrendFilter: true,
   tradingEnabled: false
 };
 
@@ -304,7 +308,7 @@ const App: React.FC = () => {
       });
     };
 
-    const intervalRate = timeframe === '1s' ? 500 : 2000;
+    const intervalRate = timeframe === '1s' ? 200 : 1000;
     tickIntervalRef.current = setInterval(updateTick, intervalRate);
 
     return () => {
