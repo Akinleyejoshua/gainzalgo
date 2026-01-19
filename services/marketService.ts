@@ -252,19 +252,30 @@ const generateHistoryFallback = (
     return x - Math.floor(x);
   };
 
-  const volMult = symbol.type === 'CRYPTO' ? 1.5 : 0.5;
-  const stepMs = timeframeId === '1s' ? 1000 : 60000;
+  const volMult = symbol.type === 'CRYPTO' ? 1.5 : 0.8;
+
+  // High-Resolution Simulation: Generate ~20 sub-ticks per candle
+  // This guarantees every candle has internal High/Low movement (Wicks) and Open != Close (Body)
+  const ticksPerCandle = 20;
+  const stepMs = Math.max(10, Math.floor(timeframe.ms / ticksPerCandle));
 
   // 1. Generate path
   const path = new Map<number, number>();
   let p = 1.0;
-  const walkStart = Math.floor(startTime / 3600000) * 3600000;
+  // Start walking slightly before the requested range to seed momentum
+  const walkStart = startTime - (timeframe.ms * 2);
 
   for (let t = walkStart; t <= alignedNow; t += stepMs) {
-    const stepSeed = baseSeed + (t / stepMs);
+    const stepSeed = baseSeed + (t / 1000); // Use second-based seed
     const r1 = getRand(stepSeed);
-    const driftScale = timeframeId === '1s' ? 0.001 : 0.003; // Increased 1s volatility
+
+    // Adjusted drift scale for sub-ticks
+    // We scale down volatility per tick since we are taking many more steps
+    const driftScale = 0.002 / Math.sqrt(ticksPerCandle);
+
     p += (r1 - 0.5) * symbol.volatility * p * driftScale * volMult;
+
+    // Snap to grid (prevent infinite decimals)
     path.set(t, p);
   }
 
@@ -277,7 +288,9 @@ const generateHistoryFallback = (
     const pricesInBar: number[] = [];
 
     // Aggregate from the path
+    // We simply look for any ticks falling within this candle's time window
     for (let mt = t; mt < t + timeframe.ms; mt += stepMs) {
+      // Find closest tick time (the loop above generates on same grid)
       const mp = path.get(mt);
       if (mp !== undefined) pricesInBar.push(mp * absoluteBase);
     }
@@ -288,13 +301,11 @@ const generateHistoryFallback = (
       let high = Math.max(...pricesInBar);
       let low = Math.min(...pricesInBar);
 
-      // FOR 1S CANDLES: If they are flat, fake a tiny spread for visual wicks
-      if (timeframeId === '1s' && pricesInBar.length === 1) {
-        const seed = baseSeed + (t / 1000);
-        const spread = open * symbol.volatility * 0.0002;
-        high = open + getRand(seed * 1.1) * spread;
-        low = open - getRand(seed * 1.2) * spread;
-        close = open + (getRand(seed * 1.3) - 0.5) * spread;
+      // Ensure at least minimal spread for visual separation (1/10th of a pip equivalent)
+      if (high === low) {
+        const tinySpread = open * 0.00005;
+        high += tinySpread;
+        low -= tinySpread;
       }
 
       data.push({
