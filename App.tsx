@@ -295,12 +295,12 @@ const App: React.FC = () => {
             volume: 0
           };
           // Start the new candle with the real price if available
-          const newCandle = updateCandleWithTick(newCandleBase, symbol.volatility, realPrice ?? undefined);
+          const newCandle = updateCandleWithTick(newCandleBase, symbol, realPrice ?? undefined);
           const newData = [...prevData, newCandle];
           return newData.slice(-1000);
         } else {
           // Update existing candle
-          const updatedCandle = updateCandleWithTick(lastCandle, symbol.volatility, realPrice ?? undefined);
+          const updatedCandle = updateCandleWithTick(lastCandle, symbol, realPrice ?? undefined);
           const newData = [...prevData];
           newData[newData.length - 1] = updatedCandle;
           return newData;

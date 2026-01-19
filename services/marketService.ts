@@ -271,7 +271,8 @@ const generateHistoryFallback = (
 
     // Adjusted drift scale for sub-ticks
     // We scale down volatility per tick since we are taking many more steps
-    const driftScale = 0.002 / Math.sqrt(ticksPerCandle);
+    // Forex Needs a much higher drift scale to be visible at 5 decimal places
+    const driftScale = (symbol.type === 'FOREX' ? 0.08 : 0.005) / Math.sqrt(ticksPerCandle);
 
     p += (r1 - 0.5) * symbol.volatility * p * driftScale * volMult;
 
@@ -680,9 +681,12 @@ export const fetchLatestTick = async (symbol: SymbolDef): Promise<number | null>
 };
 
 // Updated simulateTick to accept an optional real price and add micro-jitter
-export const updateCandleWithTick = (currentCandle: Candle, symbolVolatility: number, realPrice?: number): Candle => {
+export const updateCandleWithTick = (currentCandle: Candle, symbol: SymbolDef, realPrice?: number): Candle => {
+  const symbolVolatility = symbol.volatility;
   // Base volatility for micro-movements
-  const baseTickVol = currentCandle.close * symbolVolatility * 0.002;
+  // Forex needs a higher scale to be visible at high precision, but commodities like Gold need less
+  const volScale = symbol.type === 'FOREX' ? 0.015 : 0.002;
+  const baseTickVol = currentCandle.close * symbolVolatility * volScale;
 
   // Simulated drift to keep it moving even if realPrice is stagnant or missing
   const drift = (Math.random() - 0.5) * baseTickVol;

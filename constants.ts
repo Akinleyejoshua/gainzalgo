@@ -4,9 +4,9 @@ export const SUPPORTED_SYMBOLS: SymbolDef[] = [
   { id: 'BTCUSD', name: 'Bitcoin / USD', type: AssetType.CRYPTO, basePrice: 103245.50, volatility: 0.02 },
   { id: 'ETHUSD', name: 'Ethereum / USD', type: AssetType.CRYPTO, basePrice: 3315.20, volatility: 0.025 },
   { id: 'SOLUSD', name: 'Solana / USD', type: AssetType.CRYPTO, basePrice: 198.40, volatility: 0.035 },
-  { id: 'EURUSD', name: 'EUR / USD', type: AssetType.FOREX, basePrice: 1.0450, volatility: 0.004 },
-  { id: 'GBPUSD', name: 'GBP / USD', type: AssetType.FOREX, basePrice: 1.2580, volatility: 0.005 },
-  { id: 'USDJPY', name: 'USD / JPY', type: AssetType.FOREX, basePrice: 154.50, volatility: 0.004 },
+  { id: 'EURUSD', name: 'EUR / USD', type: AssetType.FOREX, basePrice: 1.1645, volatility: 0.015 },
+  { id: 'GBPUSD', name: 'GBP / USD', type: AssetType.FOREX, basePrice: 1.2580, volatility: 0.012 },
+  { id: 'USDJPY', name: 'USD / JPY', type: AssetType.FOREX, basePrice: 154.50, volatility: 0.008 },
   { id: 'XAUUSD', name: 'Gold / USD', type: AssetType.COMMODITY, basePrice: 2615.00, volatility: 0.008 },
 ];
 
