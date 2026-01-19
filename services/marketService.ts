@@ -208,7 +208,9 @@ export const fetchHistory = async (
     const json = await response.json();
     const rawData = json.data.ohlc;
 
-    return rawData.map((d: any) => ({
+    if (!Array.isArray(rawData) || rawData.length === 0) throw new Error("Empty Data");
+
+    const parsedData = rawData.map((d: any) => ({
       time: parseInt(d.timestamp) * 1000,
       open: parseFloat(d.open),
       high: parseFloat(d.high),
@@ -216,6 +218,13 @@ export const fetchHistory = async (
       close: parseFloat(d.close),
       volume: parseFloat(d.volume)
     })).sort((a: Candle, b: Candle) => a.time - b.time);
+
+    // Validate Data Quality
+    if (parsedData.some((d: Candle) => isNaN(d.close) || d.close <= 0)) {
+      throw new Error("Corrupt Data");
+    }
+
+    return parsedData;
   } catch (error) {
     console.warn(`Market API Down, using Deterministic Fallback for ${symbol.id}:`, error);
     const latestPrice = await fetchLatestTick(symbol);
@@ -643,11 +652,17 @@ export const calculateSignals = (data: Candle[], config: AlgoConfig, timeframeId
 // Real Tick Fetcher
 export const fetchLatestTick = async (symbol: SymbolDef): Promise<number | null> => {
   const pair = SYMBOL_MAP[symbol.id] || symbol.id.toLowerCase();
+
+  // Skip API for non-crypto if we know the API (likely Bitstamp) doesn't support them
+  // This prevents unnecessary 404s and delays
+  if (symbol.type !== 'CRYPTO') return null;
+
   try {
     const response = await fetch(`${MARKET_BASE}/ticker/${pair}/`);
     if (!response.ok) return null;
     const data = await response.json();
-    return parseFloat(data.last);
+    const val = parseFloat(data.last);
+    return isNaN(val) ? null : val;
   } catch {
     return null;
   }
