@@ -61,7 +61,7 @@ export interface TradeHistory {
 }
 
 export interface AlgoConfig {
-  sensitivity: number; // 1-10
+  sensitivity: number; // 1-100
   riskReward: number; // e.g. 2.0
   trendFilter: boolean;
   showTP: boolean;

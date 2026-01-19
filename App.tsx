@@ -14,7 +14,7 @@ import { Toaster } from 'react-hot-toast';
 import { notify } from './services/notificationService';
 
 const DEFAULT_CONFIG: AlgoConfig = {
-  sensitivity: 5,
+  sensitivity: 50,
   riskReward: 2.0,
   trendFilter: true,
   showTP: true,

@@ -427,19 +427,23 @@ export const calculateSignals = (data: Candle[], config: AlgoConfig, timeframeId
 
   const signals: Signal[] = [];
 
-  // 1. Sensitivity Logic
-  const sensitivity = Math.max(1, Math.min(10, config.sensitivity));
+  // 1. Sensitivity Logic (1-100)
+  const sensitivity = Math.max(1, Math.min(100, config.sensitivity));
 
-  // Cooldown - INCREASED for 1s to prevent overlapping markers
-  let cooldownCandles = Math.max(2, Math.round(18 - (sensitivity * 1.6)));
-  if (timeframeId === '1s') cooldownCandles *= 4; // 4x cooldown for 1s signals
+  // Cooldown - Higher Sensitivity = Lower Cooldown
+  // Range: ~2 to 20 candles
+  let cooldownCandles = Math.max(2, Math.round(20 - (sensitivity * 0.18)));
+  if (timeframeId === '1s') cooldownCandles *= 4;
 
-  // Momentum Lookback
-  const momentumLookback = Math.max(5, Math.round(22 - (sensitivity * 1.7)));
+  // Momentum Lookback - Higher Sensitivity = Shorter Lookback (Faster reaction)
+  // Range: ~5 to 30 candles
+  const momentumLookback = Math.max(5, Math.round(30 - (sensitivity * 0.25)));
 
-  // RSI Thresholds
-  const rsiLower = 25 + ((sensitivity - 1) * 2.2);
-  const rsiUpper = 75 - ((sensitivity - 1) * 2.2);
+  // RSI Thresholds - Higher Sensitivity = Wider acceptance range
+  // Lower: Grows from 20 to 45 (Easier to find dip)
+  // Upper: Shrinks from 80 to 55 (Easier to find peak)
+  const rsiLower = 20 + (sensitivity * 0.25);
+  const rsiUpper = 80 - (sensitivity * 0.25);
 
   const candleDuration = data.length > 1 ? data[1].time - data[0].time : 60000;
 
@@ -454,8 +458,14 @@ export const calculateSignals = (data: Candle[], config: AlgoConfig, timeframeId
   const macdData = calculateMACD(data);
 
   // GainZAlgo Specific Indicators (HMA + SuperTrend)
+  // Dynamic SuperTrend Settings based on sensitivity
+  // Factor: 4.0 (Safe) -> 1.5 (Aggressive)
+  const stFactor = 4.0 - (sensitivity * 0.025);
+  // Period: 14 (Slow) -> 7 (Fast)
+  const stPeriod = Math.max(7, Math.round(14 - (sensitivity * 0.07)));
+
   const hma9 = calculateHMA(data, 9);
-  const stData = calculateSuperTrend(data, atrArray, 3.0, 10);
+  const stData = calculateSuperTrend(data, atrArray, stFactor, stPeriod);
 
   // Iterate through historical data
   const startIndex = 200; // Need 200 for EMA200
